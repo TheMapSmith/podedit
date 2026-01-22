@@ -9,12 +9,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Audio Upload & Playback
 
-- [ ] **AUDIO-01**: User can upload audio file to the app
-- [ ] **AUDIO-02**: System validates audio format (MP3, WAV, M4A, etc.)
-- [ ] **AUDIO-03**: User can play/pause audio with visual controls
-- [ ] **AUDIO-04**: User can seek to any position in audio
-- [ ] **AUDIO-05**: System displays current playback position and total duration
-- [ ] **AUDIO-06**: System handles large files (45-90 min podcasts) without memory issues using streaming
+- [x] **AUDIO-01**: User can upload audio file to the app
+- [x] **AUDIO-02**: System validates audio format (MP3, WAV, M4A, etc.)
+- [x] **AUDIO-03**: User can play/pause audio with visual controls
+- [x] **AUDIO-04**: User can seek to any position in audio
+- [x] **AUDIO-05**: System displays current playback position and total duration
+- [x] **AUDIO-06**: System handles large files (45-90 min podcasts) without memory issues using streaming
 
 ### Transcription
 
@@ -96,12 +96,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDIO-01 | Phase 1 | Pending |
-| AUDIO-02 | Phase 1 | Pending |
-| AUDIO-03 | Phase 1 | Pending |
-| AUDIO-04 | Phase 1 | Pending |
-| AUDIO-05 | Phase 1 | Pending |
-| AUDIO-06 | Phase 1 | Pending |
+| AUDIO-01 | Phase 1 | Complete |
+| AUDIO-02 | Phase 1 | Complete |
+| AUDIO-03 | Phase 1 | Complete |
+| AUDIO-04 | Phase 1 | Complete |
+| AUDIO-05 | Phase 1 | Complete |
+| AUDIO-06 | Phase 1 | Complete |
 | TRANS-01 | Phase 2 | Pending |
 | TRANS-02 | Phase 2 | Pending |
 | TRANS-03 | Phase 2 | Pending |
