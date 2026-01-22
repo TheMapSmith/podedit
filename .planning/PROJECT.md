@@ -8,6 +8,17 @@ A local web app for marking cut points in podcast audio files. Upload an audio f
 
 Transcript-driven audio navigation that makes it fast to find and mark sections to remove from podcast files.
 
+## Current Milestone: v1.0 Initial Release
+
+**Goal:** Build complete podcast cut point editor from scratch - audio playback, transcription, navigation, marking, and export.
+
+**Target features:**
+- Audio file upload and streaming playback (handles 45-90 min podcasts)
+- API-based transcription with caching and large file support
+- Transcript display with click-to-jump navigation
+- Cut point marking with visual indication and direct timestamp editing
+- JSON export in ffmpeg-compatible format
+
 ## Requirements
 
 ### Validated
@@ -55,4 +66,4 @@ The transcript is the primary navigation tool - the user skims text to find prob
 | Basic audio player | Core functionality sufficient, no visualization needed | — Pending |
 
 ---
-*Last updated: 2026-01-22 after initialization*
+*Last updated: 2026-01-22 after milestone v1.0 initialization*
