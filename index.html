@@ -195,145 +195,68 @@
 
   <script type="module">
     import AudioService from './src/services/audioService.js';
+    import PlayerController from './src/components/playerController.js';
     import { validateAudioFile } from './src/services/fileValidator.js';
-    import { formatTime, formatFileSize } from './src/utils/timeFormat.js';
+    import { formatFileSize } from './src/utils/timeFormat.js';
 
-    // Initialize audio service
+    // DOM element references
+    const elements = {
+      fileInput: document.getElementById('file-input'),
+      fileInfo: document.getElementById('file-info'),
+      playerControls: document.getElementById('player-controls'),
+      playButton: document.getElementById('play-button'),
+      seekSlider: document.getElementById('seek-slider'),
+      currentTimeDisplay: document.getElementById('current-time'),
+      durationDisplay: document.getElementById('duration'),
+      errorDisplay: document.getElementById('error')
+    };
+
+    // Initialize AudioService and PlayerController
     const audioService = new AudioService();
-
-    // DOM elements
-    const fileInput = document.getElementById('file-input');
-    const fileInfo = document.getElementById('file-info');
-    const errorDisplay = document.getElementById('error');
-    const playerControls = document.getElementById('player-controls');
-    const playButton = document.getElementById('play-button');
-    const seekSlider = document.getElementById('seek-slider');
-    const currentTimeDisplay = document.getElementById('current-time');
-    const durationDisplay = document.getElementById('duration');
-
-    // State
-    let animationFrame = null;
-    let isSeeking = false;
+    const playerController = new PlayerController(audioService, elements);
 
     // File input change handler
-    fileInput.addEventListener('change', async (event) => {
+    elements.fileInput.addEventListener('change', async (event) => {
       const file = event.target.files[0];
       if (!file) return;
 
-      // Clear previous error
-      errorDisplay.textContent = '';
+      // Clear previous errors
+      elements.errorDisplay.textContent = '';
 
       // Validate file
       const validation = validateAudioFile(file);
 
       if (!validation.valid) {
-        errorDisplay.textContent = validation.errors.join('. ');
-        fileInfo.classList.add('hidden');
-        playerControls.classList.add('hidden');
+        elements.errorDisplay.textContent = validation.errors.join('. ');
+        elements.fileInfo.classList.add('hidden');
+        elements.playerControls.classList.add('hidden');
         return;
       }
 
       try {
-        // Load file
-        const metadata = await audioService.loadFile(file);
+        // Load file into audio service
+        const result = await audioService.loadFile(file);
 
         // Show file info
-        fileInfo.textContent = `${validation.fileInfo.name} (${validation.fileInfo.sizeFormatted})`;
-        fileInfo.classList.remove('hidden');
+        elements.fileInfo.textContent = `${validation.fileInfo.name} (${validation.fileInfo.sizeFormatted})`;
+        elements.fileInfo.classList.remove('hidden');
 
         // Show player controls
-        playerControls.classList.remove('hidden');
+        elements.playerControls.classList.remove('hidden');
 
-        // Update duration display
-        durationDisplay.textContent = formatTime(metadata.duration);
-        seekSlider.max = Math.floor(metadata.duration);
-
-        // Enable controls
-        playButton.disabled = false;
-        seekSlider.disabled = false;
-
-        // Reset playback state
-        playButton.textContent = 'Play';
-        currentTimeDisplay.textContent = '0:00';
-        seekSlider.value = 0;
+        // Initialize player controller with loaded file
+        playerController.onFileLoaded(result.duration);
 
       } catch (error) {
-        errorDisplay.textContent = `Failed to load audio: ${error.message}`;
-        fileInfo.classList.add('hidden');
-        playerControls.classList.add('hidden');
+        elements.errorDisplay.textContent = `Failed to load audio: ${error.message}`;
+        elements.fileInfo.classList.add('hidden');
+        elements.playerControls.classList.add('hidden');
       }
     });
-
-    // Play/pause button handler
-    playButton.addEventListener('click', async () => {
-      if (audioService.isPlaying()) {
-        audioService.pause();
-        playButton.textContent = 'Play';
-        stopUpdating();
-      } else {
-        try {
-          await audioService.play();
-          playButton.textContent = 'Pause';
-          startUpdating();
-        } catch (error) {
-          if (error.name === 'NotAllowedError') {
-            errorDisplay.textContent = 'Playback blocked. Please click the play button to start.';
-          } else {
-            errorDisplay.textContent = `Playback error: ${error.message}`;
-          }
-        }
-      }
-    });
-
-    // Seek slider handlers
-    seekSlider.addEventListener('input', (event) => {
-      isSeeking = true;
-      currentTimeDisplay.textContent = formatTime(parseInt(event.target.value));
-    });
-
-    seekSlider.addEventListener('change', (event) => {
-      isSeeking = false;
-      audioService.seek(parseInt(event.target.value));
-    });
-
-    // Audio event handlers
-    audioService.on('ended', () => {
-      playButton.textContent = 'Play';
-      stopUpdating();
-      seekSlider.value = 0;
-      currentTimeDisplay.textContent = '0:00';
-    });
-
-    audioService.on('error', () => {
-      errorDisplay.textContent = 'Error playing audio file';
-      playButton.textContent = 'Play';
-      stopUpdating();
-    });
-
-    // Update loop with requestAnimationFrame for smooth 60fps updates
-    function startUpdating() {
-      updatePlaybackPosition();
-    }
-
-    function stopUpdating() {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-        animationFrame = null;
-      }
-    }
-
-    function updatePlaybackPosition() {
-      if (!isSeeking) {
-        const currentTime = audioService.getCurrentTime();
-        seekSlider.value = Math.floor(currentTime);
-        currentTimeDisplay.textContent = formatTime(currentTime);
-      }
-      animationFrame = requestAnimationFrame(updatePlaybackPosition);
-    }
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
-      audioService.cleanup();
+      playerController.cleanup();
     });
   </script>
 </body>
