@@ -21,6 +21,9 @@ class PlayerController {
     this.isSeeking = false;
     this.animationFrame = null;
 
+    // Callback for time updates (set externally)
+    this.onTimeUpdate = null;
+
     // Setup event listeners
     this.setupEventListeners();
   }
@@ -127,6 +130,11 @@ class PlayerController {
       const currentTime = this.audioService.getCurrentTime();
       this.elements.seekSlider.value = Math.floor(currentTime);
       this.elements.currentTimeDisplay.textContent = this.formatTime(currentTime);
+
+      // Notify external listeners of time update
+      if (this.onTimeUpdate) {
+        this.onTimeUpdate(currentTime);
+      }
     }
 
     // Request next frame
