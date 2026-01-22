@@ -265,6 +265,29 @@
       font-style: italic;
     }
 
+    .transcript-segment {
+      padding: 8px 12px;
+      margin: 4px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+
+    .transcript-segment:hover {
+      background-color: #f0f0f0;
+    }
+
+    .transcript-segment.active {
+      background-color: #ffd700;
+    }
+
+    .speaker-label {
+      font-weight: 600;
+      color: #666;
+      margin-right: 8px;
+    }
+
+    /* Legacy word-level styles - kept for backwards compatibility */
     .transcript-word {
       cursor: pointer;
       padding: 2px 0;
