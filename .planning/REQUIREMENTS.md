@@ -96,32 +96,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDIO-01 | TBD | Pending |
-| AUDIO-02 | TBD | Pending |
-| AUDIO-03 | TBD | Pending |
-| AUDIO-04 | TBD | Pending |
-| AUDIO-05 | TBD | Pending |
-| AUDIO-06 | TBD | Pending |
-| TRANS-01 | TBD | Pending |
-| TRANS-02 | TBD | Pending |
-| TRANS-03 | TBD | Pending |
-| TRANS-04 | TBD | Pending |
-| TRANS-05 | TBD | Pending |
-| NAV-01 | TBD | Pending |
-| NAV-02 | TBD | Pending |
-| CUT-01 | TBD | Pending |
-| CUT-02 | TBD | Pending |
-| CUT-03 | TBD | Pending |
-| CUT-04 | TBD | Pending |
-| CUT-05 | TBD | Pending |
-| EXPORT-01 | TBD | Pending |
-| EXPORT-02 | TBD | Pending |
+| AUDIO-01 | Phase 1 | Pending |
+| AUDIO-02 | Phase 1 | Pending |
+| AUDIO-03 | Phase 1 | Pending |
+| AUDIO-04 | Phase 1 | Pending |
+| AUDIO-05 | Phase 1 | Pending |
+| AUDIO-06 | Phase 1 | Pending |
+| TRANS-01 | Phase 2 | Pending |
+| TRANS-02 | Phase 2 | Pending |
+| TRANS-03 | Phase 2 | Pending |
+| TRANS-04 | Phase 2 | Pending |
+| TRANS-05 | Phase 2 | Pending |
+| NAV-01 | Phase 3 | Pending |
+| NAV-02 | Phase 3 | Pending |
+| CUT-01 | Phase 4 | Pending |
+| CUT-02 | Phase 4 | Pending |
+| CUT-03 | Phase 4 | Pending |
+| CUT-04 | Phase 4 | Pending |
+| CUT-05 | Phase 4 | Pending |
+| EXPORT-01 | Phase 5 | Pending |
+| EXPORT-02 | Phase 5 | Pending |
 
 **Coverage:**
 - v1.0 requirements: 20 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 20 ⚠️
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 after initial definition*
+*Last updated: 2026-01-22 after roadmap creation*
