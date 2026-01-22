@@ -45,10 +45,11 @@ Plans:
   2. User sees completed transcript with word-level timestamps (e.g., "[00:15] Hello [00:16] everyone")
   3. User can reload the page with same audio file and transcript loads from cache without re-transcription
   4. User can transcribe a 60-minute podcast file larger than 25 MB without API rejection errors
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD during phase planning
+- [ ] 02-01-PLAN.md — CacheService, file hashing, and TranscriptionService with Whisper API
+- [ ] 02-02-PLAN.md — TranscriptController and UI integration with progress display
 
 ### Phase 3: Transcript Navigation
 **Goal**: User can navigate audio by interacting with the transcript text
@@ -99,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Audio Playback Foundation | 2/2 | Complete | 2026-01-22 |
-| 2. Transcription Integration | 0/TBD | Not started | - |
+| 2. Transcription Integration | 0/2 | Not started | - |
 | 3. Transcript Navigation | 0/TBD | Not started | - |
 | 4. Cut Point Management | 0/TBD | Not started | - |
 | 5. Export & Finalization | 0/TBD | Not started | - |
