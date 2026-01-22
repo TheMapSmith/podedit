@@ -12,15 +12,27 @@ class TranscriptController {
    * @param {HTMLElement} elements.progressText
    * @param {HTMLElement} elements.transcriptContainer
    * @param {HTMLElement} elements.errorDisplay
+   * @param {AudioService} audioService - AudioService instance for navigation
    */
-  constructor(transcriptionService, elements) {
+  constructor(transcriptionService, elements, audioService) {
     this.transcriptionService = transcriptionService;
     this.elements = elements;
+    this.audioService = audioService;
 
     // State
     this.currentFile = null;
     this.transcript = null;
     this.isTranscribing = false;
+
+    // Navigation state
+    this.currentWordIndex = -1;
+    this.activeWord = null;
+    this.userIsScrolling = false;
+    this.scrollTimeout = null;
+
+    // Setup navigation
+    this.setupClickToSeek();
+    this.setupScrollDetection();
   }
 
   /**
@@ -165,10 +177,149 @@ class TranscriptController {
   }
 
   /**
+   * Setup click-to-seek functionality
+   * Uses event delegation on transcript container
+   * @private
+   */
+  setupClickToSeek() {
+    this.elements.transcriptContainer.addEventListener('click', (event) => {
+      // Find clicked word using event delegation
+      const wordElement = event.target.closest('.transcript-word');
+      if (!wordElement) return;
+
+      // Parse start time from data attribute
+      const startTime = parseFloat(wordElement.getAttribute('data-start'));
+      if (isNaN(startTime)) return;
+
+      // Seek audio to that timestamp
+      this.audioService.seek(startTime);
+
+      // Immediately update highlight on clicked word
+      this.updateHighlight(wordElement);
+    });
+  }
+
+  /**
+   * Setup scroll detection to pause auto-scroll during manual scrolling
+   * @private
+   */
+  setupScrollDetection() {
+    this.elements.transcriptContainer.addEventListener('scroll', () => {
+      // Set flag when user scrolls
+      this.userIsScrolling = true;
+
+      // Clear existing timeout
+      if (this.scrollTimeout) {
+        clearTimeout(this.scrollTimeout);
+      }
+
+      // Reset flag after 1500ms of no scrolling
+      this.scrollTimeout = setTimeout(() => {
+        this.userIsScrolling = false;
+      }, 1500);
+    }, { passive: true });
+  }
+
+  /**
+   * Called on audio time updates to sync highlight and scroll
+   * @param {number} currentTime - Current playback time in seconds
+   */
+  onTimeUpdate(currentTime) {
+    // Guard: no transcript or no words
+    if (!this.transcript || !this.transcript.words || this.transcript.words.length === 0) {
+      return;
+    }
+
+    // Find current word index
+    const newIndex = this.findCurrentWordIndex(currentTime);
+
+    // Only update if index changed and is valid
+    if (newIndex !== this.currentWordIndex && newIndex >= 0) {
+      this.currentWordIndex = newIndex;
+
+      // Get word element from container
+      const wordElement = this.elements.transcriptContainer.children[newIndex];
+      if (wordElement) {
+        this.updateHighlight(wordElement);
+      }
+    }
+  }
+
+  /**
+   * Find the index of the word at the current time
+   * @param {number} currentTime - Current playback time in seconds
+   * @returns {number} - Index of current word, or -1 if not found
+   * @private
+   */
+  findCurrentWordIndex(currentTime) {
+    const words = this.transcript.words;
+
+    // Linear search through words
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      // Check if currentTime falls within this word's range
+      if (word.start <= currentTime && currentTime < word.end) {
+        return i;
+      }
+    }
+
+    // Fallback: return last word where start <= currentTime
+    for (let i = words.length - 1; i >= 0; i--) {
+      if (words[i].start <= currentTime) {
+        return i;
+      }
+    }
+
+    // No match found
+    return -1;
+  }
+
+  /**
+   * Update highlight to the new active word
+   * @param {HTMLElement} newActiveWord - New word element to highlight
+   * @private
+   */
+  updateHighlight(newActiveWord) {
+    // Remove 'active' class from previous word
+    if (this.activeWord) {
+      this.activeWord.classList.remove('active');
+    }
+
+    // Add 'active' class to new word
+    if (newActiveWord) {
+      newActiveWord.classList.add('active');
+
+      // Auto-scroll if user is not manually scrolling
+      if (!this.userIsScrolling) {
+        newActiveWord.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+    }
+
+    // Store new active word
+    this.activeWord = newActiveWord;
+  }
+
+  /**
    * Clean up resources
    * Should be called when done with controller
    */
   cleanup() {
+    // Clear scroll timeout
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout);
+    }
+
+    // Reset navigation state
+    this.currentWordIndex = -1;
+    this.activeWord = null;
+    this.userIsScrolling = false;
+    this.scrollTimeout = null;
+
+    // Reset other state
     this.currentFile = null;
     this.transcript = null;
     this.isTranscribing = false;
