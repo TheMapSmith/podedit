@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 Phase: 2 of 5 (Transcription Integration)
 Plan: 1 of 2 in current phase
 Status: In progress
-Last activity: 2026-01-22 — Completed 02-01-PLAN.md
+Last activity: 2026-01-22 — Completed quick task 001: File extension .m4a doesn't match MIME type audio/mpeg
 
 Progress: [███░░░░░░░] 30%
 
@@ -65,6 +65,12 @@ None yet.
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | File extension .m4a doesn't match MIME type audio/mpeg | 2026-01-22 | 4dd7208 | [001-file-extension-m4a-doesn-t-match-mime-ty](./quick/001-file-extension-m4a-doesn-t-match-mime-ty/) |
 
 ## Session Continuity
 
