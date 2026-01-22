@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 | 1500ms scroll timeout | 03-01 | Distinguishes manual vs programmatic scrolling | Auto-scroll pauses during user interaction, resumes automatically |
 | scrollIntoView with block: 'center' | 03-01 | Centers active word for better visibility and context | More prominent than 'start' or 'nearest' positioning |
 | Linear search for current word | 03-01 | O(n) sufficient for typical podcast transcripts | Simple implementation, can optimize later if needed |
+| Use gpt-4o-transcribe over whisper-1 | quick-002 | Better accuracy and speaker diarization support | Transcript now uses segments instead of words, speaker labels available |
+| Segment-based UI display | quick-002 | Matches API structure, better visual hierarchy | Each segment is block-level div with padding, fewer DOM elements |
 
 ### Pending Todos
 
@@ -79,11 +81,12 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | File extension .m4a doesn't match MIME type audio/mpeg | 2026-01-22 | 4dd7208 | [001-file-extension-m4a-doesn-t-match-mime-ty](./quick/001-file-extension-m4a-doesn-t-match-mime-ty/) |
+| 002 | Switch from whisper-1 to gpt-4o-transcribe model | 2026-01-22 | 23004de | [002-switch-from-whisper-1-to-gpt-4o-transcri](./quick/002-switch-from-whisper-1-to-gpt-4o-transcri/) |
 
 ## Session Continuity
 
-Last session: 2026-01-22 at 06:12:49Z (plan 03-01 completion)
-Stopped at: Completed Phase 3 - Transcript Navigation (1/1 plans)
+Last session: 2026-01-22 at 21:53:27Z (quick task 002 completion)
+Stopped at: Completed quick-002: Switch from whisper-1 to gpt-4o-transcribe
 Resume file: None
 
 ## Phase Status
