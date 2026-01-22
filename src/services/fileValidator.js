@@ -1,6 +1,6 @@
 // Supported audio formats mapping MIME types to extensions
 export const SUPPORTED_AUDIO_FORMATS = {
-  'audio/mpeg': ['.mp3'],
+  'audio/mpeg': ['.mp3', '.m4a'],
   'audio/mp3': ['.mp3'],           // Chrome variation
   'audio/wav': ['.wav'],
   'audio/wave': ['.wav'],          // Alternative
@@ -46,7 +46,7 @@ export function validateAudioFile(file) {
   // Check file extension matches MIME type (optional sanity check)
   const extension = file.name.toLowerCase().split('.').pop();
   const expectedExtensions = SUPPORTED_AUDIO_FORMATS[mimeType] || [];
-  const extensionValid = expectedExtensions.some(ext => ext.includes(extension));
+  const extensionValid = expectedExtensions.some(ext => ext === `.${extension}`);
 
   if (mimeType && !extensionValid && errors.length === 0) {
     errors.push(`File extension .${extension} doesn't match MIME type ${mimeType}`);
