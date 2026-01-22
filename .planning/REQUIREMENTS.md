@@ -107,8 +107,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-03 | Phase 2 | Pending |
 | TRANS-04 | Phase 2 | Pending |
 | TRANS-05 | Phase 2 | Pending |
-| NAV-01 | Phase 3 | Pending |
-| NAV-02 | Phase 3 | Pending |
+| NAV-01 | Phase 3 | Complete |
+| NAV-02 | Phase 3 | Complete |
 | CUT-01 | Phase 4 | Pending |
 | CUT-02 | Phase 4 | Pending |
 | CUT-03 | Phase 4 | Pending |
