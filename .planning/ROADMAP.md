@@ -13,7 +13,7 @@ PodEdit transforms from empty repository to working podcast cut point editor thr
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Audio Playback Foundation** - Upload and stream audio files with reliable playback controls
-- [ ] **Phase 2: Transcription Integration** - Generate and cache timestamped transcripts via API
+- [x] **Phase 2: Transcription Integration** - Generate and cache timestamped transcripts via API
 - [ ] **Phase 3: Transcript Navigation** - Display transcript with click-to-jump and auto-scroll sync
 - [ ] **Phase 4: Cut Point Management** - Mark start/end pairs with visual indication and editing
 - [ ] **Phase 5: Export & Finalization** - Generate JSON cut list for ffmpeg processing
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — CacheService, file hashing, and TranscriptionService with Whisper API
-- [ ] 02-02-PLAN.md — TranscriptController and UI integration with progress display
+- [x] 02-01-PLAN.md — CacheService, file hashing, and TranscriptionService with Whisper API
+- [x] 02-02-PLAN.md — TranscriptController and UI integration with progress display
 
 ### Phase 3: Transcript Navigation
 **Goal**: User can navigate audio by interacting with the transcript text
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Audio Playback Foundation | 2/2 | Complete | 2026-01-22 |
-| 2. Transcription Integration | 0/2 | Not started | - |
+| 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
 | 3. Transcript Navigation | 0/TBD | Not started | - |
 | 4. Cut Point Management | 0/TBD | Not started | - |
 | 5. Export & Finalization | 0/TBD | Not started | - |
