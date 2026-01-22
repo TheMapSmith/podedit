@@ -30,10 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can seek to any position in the audio timeline and playback continues from that point
   4. User can see current playback position (e.g., "15:23") and total duration (e.g., "45:00")
   5. User can upload and play a 90-minute podcast without browser memory crash or degraded performance
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD during phase planning
+- [ ] 01-01-PLAN.md — Project setup, audio service core, and file validation
+- [ ] 01-02-PLAN.md — UI components, playback controls, and large file testing
 
 ### Phase 2: Transcription Integration
 **Goal**: User can generate timestamped transcripts from audio files with caching to avoid API cost waste
@@ -93,11 +94,11 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audio Playback Foundation | 0/TBD | Not started | - |
+| 1. Audio Playback Foundation | 0/2 | Planned | - |
 | 2. Transcription Integration | 0/TBD | Not started | - |
 | 3. Transcript Navigation | 0/TBD | Not started | - |
 | 4. Cut Point Management | 0/TBD | Not started | - |
