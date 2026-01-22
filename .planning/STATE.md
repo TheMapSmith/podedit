@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Transcript-driven audio navigation that makes it fast to find and mark sections to remove from podcast files
-**Current focus:** Phase 2 - Transcription Integration
+**Current focus:** Phase 3 - Transcript Navigation
 
 ## Current Position
 
-Phase: 2 of 5 (Transcription Integration)
-Plan: 2 of 2 in current phase
+Phase: 3 of 5 (Transcript Navigation)
+Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-01-22 — Completed 02-02: Transcription UI integration
+Last activity: 2026-01-22 — Completed 03-01: Transcript-audio navigation
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 2 minutes
-- Total execution time: 0.13 hours
+- Total execution time: 0.16 hours
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [████░░░░░░] 40%
 |-------|-------|-------|----------|
 | 01-audio-playback-foundation | 2/2 | 4min | 2min |
 | 02-transcription-integration | 2/2 | 4min | 2min |
+| 03-transcript-navigation | 1/1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2min), 01-02 (2min), 02-01 (2min), 02-02 (2min)
+- Last 5 plans: 01-01 (2min), 01-02 (2min), 02-01 (2min), 02-02 (2min), 03-01 (2min)
 - Trend: Consistent (all plans 2 minutes)
 
 *Updated after each plan completion*
@@ -60,6 +61,10 @@ Recent decisions affecting current work:
 | API key in localStorage | 02-02 | Simple approach for local dev tool, no backend needed | Convenient for development, user provides their own key |
 | Progress callback pattern | 02-02 | Service calls controller's onProgress during async ops | Clean separation, reusable pattern for long operations |
 | Word spans with data attributes | 02-02 | Stores timestamp info for future click-to-seek | Prepares structure for Phase 3 navigation |
+| Event delegation for click-to-seek | 03-01 | Single listener vs per-word listeners for efficiency | Scales to hundreds/thousands of words without performance issues |
+| 1500ms scroll timeout | 03-01 | Distinguishes manual vs programmatic scrolling | Auto-scroll pauses during user interaction, resumes automatically |
+| scrollIntoView with block: 'center' | 03-01 | Centers active word for better visibility and context | More prominent than 'start' or 'nearest' positioning |
+| Linear search for current word | 03-01 | O(n) sufficient for typical podcast transcripts | Simple implementation, can optimize later if needed |
 
 ### Pending Todos
 
@@ -77,8 +82,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22 at 04:18:36Z (plan 02-02 completion)
-Stopped at: Completed Phase 2 - Transcription Integration (2/2 plans)
+Last session: 2026-01-22 at 06:12:49Z (plan 03-01 completion)
+Stopped at: Completed Phase 3 - Transcript Navigation (1/1 plans)
 Resume file: None
 
 ## Phase Status
@@ -114,4 +119,22 @@ All deliverables shipped:
 - ✅ Word-level transcript display with timestamp data attributes
 - ✅ Cache-first strategy (instant load for repeated files)
 
-Ready for Phase 3 - Transcript Navigation
+---
+
+**Phase 3 - Transcript Navigation: COMPLETE** ✓
+
+All success criteria met:
+- ✅ User can click any word in transcript and audio jumps to that timestamp
+- ✅ User can start audio playback and see transcript auto-scroll to follow
+- ✅ User can see visual highlighting on currently-playing word
+
+Deliverables:
+- TranscriptController with click-to-seek navigation
+- Event delegation for word click handling
+- Scroll detection with 1500ms timeout for manual override
+- onTimeUpdate callback pattern in PlayerController
+- 60fps highlight sync during playback
+- Auto-scroll with smooth centering behavior
+- Yellow highlight (#ffd700) for active word
+
+Ready for Phase 4 - Region Marking
