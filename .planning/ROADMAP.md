@@ -59,10 +59,10 @@ Plans:
   1. User can click any word in the transcript and audio immediately jumps to that timestamp
   2. User can start audio playback and see the transcript automatically scroll to keep current word visible
   3. User can see visual highlighting on the currently-playing word in the transcript
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] TBD during phase planning
+- [ ] 03-01-PLAN.md — Click-to-seek, word highlighting, and auto-scroll navigation
 
 ### Phase 4: Cut Point Management
 **Goal**: User can mark regions to remove and manage those marks with visual feedback
@@ -101,6 +101,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Audio Playback Foundation | 2/2 | Complete | 2026-01-22 |
 | 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
-| 3. Transcript Navigation | 0/TBD | Not started | - |
+| 3. Transcript Navigation | 0/1 | Planned | - |
 | 4. Cut Point Management | 0/TBD | Not started | - |
 | 5. Export & Finalization | 0/TBD | Not started | - |
