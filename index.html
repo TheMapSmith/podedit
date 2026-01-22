@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PodEdit</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 32px;
+    }
+
+    .file-upload {
+      margin-bottom: 20px;
+    }
+
+    #file-input {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 2px dashed #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #file-input:hover {
+      border-color: #007bff;
+    }
+
+    #file-info {
+      margin-top: 15px;
+      padding: 12px;
+      background: #e9ecef;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #495057;
+    }
+
+    #error {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      color: #721c24;
+      font-size: 14px;
+    }
+
+    #error:empty {
+      display: none;
+    }
+
+    .player-controls {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    #play-button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      background: #007bff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-width: 100px;
+    }
+
+    #play-button:hover:not(:disabled) {
+      background: #0056b3;
+    }
+
+    #play-button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #seek-slider {
+      flex: 1;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #dee2e6;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #seek-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #007bff;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #seek-slider::-webkit-slider-thumb:hover {
+      background: #0056b3;
+    }
+
+    #seek-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #007bff;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s;
+    }
+
+    #seek-slider::-moz-range-thumb:hover {
+      background: #0056b3;
+    }
+
+    #seek-slider:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #6c757d;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PodEdit</h1>
+
+    <div class="file-upload">
+      <input type="file" id="file-input" accept="audio/*">
+    </div>
+
+    <div id="file-info" class="hidden"></div>
+    <div id="error"></div>
+
+    <div id="player-controls" class="player-controls hidden">
+      <div class="controls-row">
+        <button id="play-button" disabled>Play</button>
+        <input type="range" id="seek-slider" min="0" max="100" value="0" disabled>
+      </div>
+      <div class="time-display">
+        <span id="current-time">0:00</span>
+        <span id="duration">0:00</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import AudioService from './src/services/audioService.js';
+    import { validateAudioFile } from './src/services/fileValidator.js';
+    import { formatTime, formatFileSize } from './src/utils/timeFormat.js';
+
+    // Initialize audio service
+    const audioService = new AudioService();
+
+    // DOM elements
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const errorDisplay = document.getElementById('error');
+    const playerControls = document.getElementById('player-controls');
+    const playButton = document.getElementById('play-button');
+    const seekSlider = document.getElementById('seek-slider');
+    const currentTimeDisplay = document.getElementById('current-time');
+    const durationDisplay = document.getElementById('duration');
+
+    // State
+    let animationFrame = null;
+    let isSeeking = false;
+
+    // File input change handler
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Clear previous error
+      errorDisplay.textContent = '';
+
+      // Validate file
+      const validation = validateAudioFile(file);
+
+      if (!validation.valid) {
+        errorDisplay.textContent = validation.errors.join('. ');
+        fileInfo.classList.add('hidden');
+        playerControls.classList.add('hidden');
+        return;
+      }
+
+      try {
+        // Load file
+        const metadata = await audioService.loadFile(file);
+
+        // Show file info
+        fileInfo.textContent = `${validation.fileInfo.name} (${validation.fileInfo.sizeFormatted})`;
+        fileInfo.classList.remove('hidden');
+
+        // Show player controls
+        playerControls.classList.remove('hidden');
+
+        // Update duration display
+        durationDisplay.textContent = formatTime(metadata.duration);
+        seekSlider.max = Math.floor(metadata.duration);
+
+        // Enable controls
+        playButton.disabled = false;
+        seekSlider.disabled = false;
+
+        // Reset playback state
+        playButton.textContent = 'Play';
+        currentTimeDisplay.textContent = '0:00';
+        seekSlider.value = 0;
+
+      } catch (error) {
+        errorDisplay.textContent = `Failed to load audio: ${error.message}`;
+        fileInfo.classList.add('hidden');
+        playerControls.classList.add('hidden');
+      }
+    });
+
+    // Play/pause button handler
+    playButton.addEventListener('click', async () => {
+      if (audioService.isPlaying()) {
+        audioService.pause();
+        playButton.textContent = 'Play';
+        stopUpdating();
+      } else {
+        try {
+          await audioService.play();
+          playButton.textContent = 'Pause';
+          startUpdating();
+        } catch (error) {
+          if (error.name === 'NotAllowedError') {
+            errorDisplay.textContent = 'Playback blocked. Please click the play button to start.';
+          } else {
+            errorDisplay.textContent = `Playback error: ${error.message}`;
+          }
+        }
+      }
+    });
+
+    // Seek slider handlers
+    seekSlider.addEventListener('input', (event) => {
+      isSeeking = true;
+      currentTimeDisplay.textContent = formatTime(parseInt(event.target.value));
+    });
+
+    seekSlider.addEventListener('change', (event) => {
+      isSeeking = false;
+      audioService.seek(parseInt(event.target.value));
+    });
+
+    // Audio event handlers
+    audioService.on('ended', () => {
+      playButton.textContent = 'Play';
+      stopUpdating();
+      seekSlider.value = 0;
+      currentTimeDisplay.textContent = '0:00';
+    });
+
+    audioService.on('error', () => {
+      errorDisplay.textContent = 'Error playing audio file';
+      playButton.textContent = 'Play';
+      stopUpdating();
+    });
+
+    // Update loop with requestAnimationFrame for smooth 60fps updates
+    function startUpdating() {
+      updatePlaybackPosition();
+    }
+
+    function stopUpdating() {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+    }
+
+    function updatePlaybackPosition() {
+      if (!isSeeking) {
+        const currentTime = audioService.getCurrentTime();
+        seekSlider.value = Math.floor(currentTime);
+        currentTimeDisplay.textContent = formatTime(currentTime);
+      }
+      animationFrame = requestAnimationFrame(updatePlaybackPosition);
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      audioService.cleanup();
+    });
+  </script>
+</body>
+</html>
