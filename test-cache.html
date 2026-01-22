@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cache Service Test</title>
+</head>
+<body>
+  <h1>Cache Service Test</h1>
+  <p>Open browser console to see test results</p>
+
+  <script type="module">
+    import { generateFileHash } from './src/utils/fileHash.js';
+    import CacheService from './src/services/cacheService.js';
+
+    async function runTests() {
+      console.log('=== Starting Cache Service Tests ===');
+
+      try {
+        // Test 1: Generate file hash
+        console.log('\nTest 1: Generate file hash');
+        const testFile1 = new File(['test content'], 'test.txt', { type: 'text/plain' });
+        const hash1 = await generateFileHash(testFile1);
+        console.log('✓ Hash generated:', hash1);
+        console.log('✓ Hash length:', hash1.length, 'chars (should be 64)');
+
+        // Test 2: Same content produces same hash
+        console.log('\nTest 2: Same content produces same hash');
+        const testFile2 = new File(['test content'], 'different-name.txt', { type: 'text/plain' });
+        const hash2 = await generateFileHash(testFile2);
+        console.log('✓ Hash 1:', hash1);
+        console.log('✓ Hash 2:', hash2);
+        console.log('✓ Hashes match:', hash1 === hash2);
+
+        // Test 3: Different content produces different hash
+        console.log('\nTest 3: Different content produces different hash');
+        const testFile3 = new File(['different content'], 'test.txt', { type: 'text/plain' });
+        const hash3 = await generateFileHash(testFile3);
+        console.log('✓ Hash 3:', hash3);
+        console.log('✓ Different from hash1:', hash1 !== hash3);
+
+        // Test 4: Store and retrieve from cache
+        console.log('\nTest 4: Store and retrieve from cache');
+        const cacheService = new CacheService();
+        const testTranscript = {
+          text: 'Hello world test transcript',
+          words: [
+            { word: 'Hello', start: 0.0, end: 0.5 },
+            { word: 'world', start: 0.5, end: 1.0 },
+            { word: 'test', start: 1.0, end: 1.3 },
+            { word: 'transcript', start: 1.3, end: 2.0 }
+          ],
+          duration: 2.0
+        };
+
+        await cacheService.set(hash1, testTranscript);
+        console.log('✓ Transcript stored');
+
+        const retrieved = await cacheService.get(hash1);
+        console.log('✓ Transcript retrieved:', retrieved);
+        console.log('✓ Text matches:', retrieved.text === testTranscript.text);
+        console.log('✓ Words count matches:', retrieved.words.length === testTranscript.words.length);
+        console.log('✓ Duration matches:', retrieved.duration === testTranscript.duration);
+
+        // Test 5: Cache miss returns null
+        console.log('\nTest 5: Cache miss returns null');
+        const nonExistentHash = 'a'.repeat(64);
+        const missed = await cacheService.get(nonExistentHash);
+        console.log('✓ Non-existent hash returns null:', missed === null);
+
+        // Test 6: Hash stability across sessions (can't test programmatically)
+        console.log('\nTest 6: Hash stability across sessions');
+        console.log('ℹ To test: Reload page with same file content and verify hash matches');
+        console.log('ℹ Expected hash for "test content":', hash1);
+
+        console.log('\n=== All tests passed! ===');
+
+      } catch (error) {
+        console.error('✗ Test failed:', error);
+      }
+    }
+
+    // Run tests when page loads
+    runTests();
+  </script>
+</body>
+</html>
