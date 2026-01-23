@@ -64,8 +64,9 @@ class TranscriptionService {
   async transcribeSingle(file, hash) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('model', 'gpt-4o-transcribe');
-    formData.append('response_format', 'verbose_json');
+    formData.append('model', 'gpt-4o-transcribe-diarize');
+    formData.append('response_format', 'diarized_json');
+    formData.append('chunking_strategy', 'auto');
 
     try {
       const response = await fetch(this.apiUrl, {
@@ -136,8 +137,9 @@ class TranscriptionService {
       // Transcribe chunk
       const formData = new FormData();
       formData.append('file', chunkFile);
-      formData.append('model', 'gpt-4o-transcribe');
-      formData.append('response_format', 'verbose_json');
+      formData.append('model', 'gpt-4o-transcribe-diarize');
+      formData.append('response_format', 'diarized_json');
+      formData.append('chunking_strategy', 'auto');
 
       try {
         const response = await fetch(this.apiUrl, {
