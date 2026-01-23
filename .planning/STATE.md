@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 4 of 5 (Cut Point Management)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-23 — Completed 04-02: Cut marking UI with buttons and list
+Last activity: 2026-01-23 — Completed 04-03: Inline timestamp editing for cut regions
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 2 minutes
-- Total execution time: 0.19 hours
+- Total execution time: 0.20 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [███████░░░] 70%
 | 01-audio-playback-foundation | 2/2 | 4min | 2min |
 | 02-transcription-integration | 2/2 | 4min | 2min |
 | 03-transcript-navigation | 1/1 | 2min | 2min |
-| 04-cut-point-management | 2/4 | 3min | 2min |
+| 04-cut-point-management | 3/4 | 4min | 1min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (2min), 02-02 (2min), 03-01 (2min), 04-01 (1min), 04-02 (2min)
-- Trend: Consistent (average 2 minutes)
+- Last 5 plans: 02-02 (2min), 03-01 (2min), 04-01 (1min), 04-02 (2min), 04-03 (1min)
+- Trend: Very fast (last 2 plans 1 minute each)
 
 *Updated after each plan completion*
 
@@ -76,6 +76,9 @@ Recent decisions affecting current work:
 | Mark End button disabled by default | 04-02 | Enforces two-phase flow (must mark start before end) | Clear UI state feedback via pending status text |
 | Cut list scrolling at 200px max-height | 04-02 | Prevents cut list from dominating screen space | Maintains compact layout while supporting unlimited cuts |
 | formatCutTime outputs M:SS format | 04-02 | Matches existing time display pattern (no leading zero on minutes) | Consistent with project conventions |
+| Accept multiple time formats (M:SS, MM:SS, H:MM:SS, plain seconds) | 04-03 | Users naturally type timestamps in various formats | Parser reduces friction, improves UX |
+| Visual error feedback over alerts | 04-03 | Red border/background less disruptive than modal alerts | Better user experience during data entry |
+| Enter commits, Escape reverts in inputs | 04-03 | Standard keyboard UX from spreadsheets | Familiar pattern for power users |
 
 ### Pending Todos
 
@@ -94,8 +97,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-23 at 05:24:42Z (plan execution)
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-01-23 at 05:29:21Z (plan execution)
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
 
 ## Phase Status
@@ -181,4 +184,17 @@ Deliverables (04-02):
 - Callback handlers for pending cut state and cut list changes
 - formatCutTime helper for timestamp display
 
-Next: Plan 04-03 - Text-based cut editing (manual timestamp input for precise adjustments)
+Plan 04-03 complete:
+- ✅ Editable timestamp inputs in cut list
+- ✅ Time parsing for M:SS, MM:SS, H:MM:SS, plain seconds
+- ✅ Input validation with visual feedback (red border/background)
+- ✅ Keyboard support (Enter to commit, Escape to revert)
+
+Deliverables (04-03):
+- parseTimeInput function with regex parsing for multiple formats
+- handleTimeInputChange for validation and cut region updates
+- CSS for .cut-time-input with focus and invalid states
+- Event handlers for change, blur, and keydown (Enter/Escape)
+- Real-time transcript highlighting updates on timestamp edit
+
+Next: Plan 04-04 - Cut validation and overlap detection
