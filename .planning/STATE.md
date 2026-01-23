@@ -85,6 +85,9 @@ Recent decisions affecting current work:
 | Derive export filename from audio filename | 05-01 | Clear relationship between files | "podcast.mp3" → "podcast-cuts.json" makes matching easy |
 | Revoke object URLs after download | 05-01 | Prevent memory leaks | Browser holds URLs in memory until revoked |
 | Export button enabled only when cuts exist | 05-01 | Prevent exporting empty cut lists | Button state signals when export is available |
+| Duration-aware chunking with 1200s limit | quick-003 | API has 1400s duration limit per request | Prevents transcription failures on long, low-bitrate files |
+| Conservative 64kbps bitrate for duration estimation | quick-003 | Over-estimates duration to chunk more aggressively | Safer than under-estimating and exceeding API limits |
+| Chunk count = max(chunksBySize, chunksByDuration) | quick-003 | Whichever constraint requires more chunks wins | Ensures both 24MB size AND 1400s duration limits respected |
 
 ### Pending Todos
 
@@ -100,11 +103,12 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 001 | File extension .m4a doesn't match MIME type audio/mpeg | 2026-01-22 | 4dd7208 | [001-file-extension-m4a-doesn-t-match-mime-ty](./quick/001-file-extension-m4a-doesn-t-match-mime-ty/) |
 | 002 | Switch from whisper-1 to gpt-4o-transcribe model | 2026-01-22 | 23004de | [002-switch-from-whisper-1-to-gpt-4o-transcri](./quick/002-switch-from-whisper-1-to-gpt-4o-transcri/) |
+| 003 | Verify large file chunking - API also has duration limit | 2026-01-23 | cd8395f | [003-verify-large-file-chunking-the-api-also-](./quick/003-verify-large-file-chunking-the-api-also-/) |
 
 ## Session Continuity
 
-Last session: 2026-01-23 at 14:49:51Z (plan execution)
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-01-23 at 15:27:17Z (quick task execution)
+Stopped at: Completed quick task 003
 Resume file: None
 
 ## Phase Status
