@@ -39,8 +39,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Export
 
-- [ ] **EXPORT-01**: User can export JSON file with filename and cut timestamps
-- [ ] **EXPORT-02**: System generates JSON in ffmpeg-compatible format for downstream scripts
+- [x] **EXPORT-01**: User can export JSON file with filename and cut timestamps
+- [x] **EXPORT-02**: System generates JSON in ffmpeg-compatible format for downstream scripts
 
 ## Future Requirements (v2.0+)
 
@@ -114,8 +114,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUT-03 | Phase 4 | Complete |
 | CUT-04 | Phase 4 | Complete |
 | CUT-05 | Phase 4 | Complete |
-| EXPORT-01 | Phase 5 | Pending |
-| EXPORT-02 | Phase 5 | Pending |
+| EXPORT-01 | Phase 5 | Complete |
+| EXPORT-02 | Phase 5 | Complete |
 
 **Coverage:**
 - v1.0 requirements: 20 total

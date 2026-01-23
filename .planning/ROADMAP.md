@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Transcription Integration** - Generate and cache timestamped transcripts via API
 - [x] **Phase 3: Transcript Navigation** - Display transcript with click-to-jump and auto-scroll sync
 - [x] **Phase 4: Cut Point Management** - Mark start/end pairs with visual indication and editing
-- [ ] **Phase 5: Export & Finalization** - Generate JSON cut list for ffmpeg processing
+- [x] **Phase 5: Export & Finalization** - Generate JSON cut list for ffmpeg processing
 
 ## Phase Details
 
@@ -92,7 +92,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — ExportService and Export button UI
+- [x] 05-01-PLAN.md — ExportService and Export button UI
 
 ## Progress
 
@@ -105,4 +105,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
 | 3. Transcript Navigation | 1/1 | Complete | 2026-01-22 |
 | 4. Cut Point Management | 3/3 | Complete | 2026-01-23 |
-| 5. Export & Finalization | 0/1 | Not started | - |
+| 5. Export & Finalization | 1/1 | Complete | 2026-01-23 |
