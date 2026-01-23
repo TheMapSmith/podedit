@@ -15,6 +15,20 @@ class TranscriptionService {
     this.cacheService = new CacheService();
     this.apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
     this.maxChunkSize = 24 * 1024 * 1024; // 24MB - buffer under 25MB API limit
+    this.maxChunkDuration = 1200; // 1200 seconds - safe buffer under 1400s API limit
+    this.minBitrate = 64000; // 64 kbps - conservative assumption for duration estimation
+  }
+
+  /**
+   * Estimate audio duration from file size using conservative bitrate assumption
+   * Uses low bitrate (64kbps) to over-estimate duration, ensuring we chunk more aggressively
+   * @param {File} file - Audio file
+   * @returns {number} - Estimated duration in seconds
+   */
+  estimateDuration(file) {
+    // file.size is bytes, minBitrate is bits/second
+    // duration = (bytes * 8 bits/byte) / (bits/second)
+    return (file.size * 8) / this.minBitrate;
   }
 
   /**
@@ -35,13 +49,22 @@ class TranscriptionService {
         return cached;
       }
 
-      // Determine transcription strategy based on file size
+      // Calculate optimal chunk count considering both size and duration limits
+      const estimatedDuration = this.estimateDuration(file);
+      console.log(`Transcription: ${file.name}, ${(file.size / (1024*1024)).toFixed(2)}MB, ~${Math.round(estimatedDuration)}s estimated`);
+
+      const chunksBySize = Math.ceil(file.size / this.maxChunkSize);
+      const chunksByDuration = Math.ceil(estimatedDuration / this.maxChunkDuration);
+      const numChunks = Math.max(chunksBySize, chunksByDuration, 1);
+
+      // Determine transcription strategy
       let transcript;
-      if (file.size > this.maxChunkSize) {
-        console.log('File exceeds 24MB, using chunked transcription');
-        transcript = await this.transcribeChunked(file, fileHash, onProgress);
+      if (numChunks > 1) {
+        console.log(`Chunking: size needs ${chunksBySize} chunks, duration needs ${chunksByDuration} chunks, using ${numChunks}`);
+        const chunkSize = Math.ceil(file.size / numChunks);
+        transcript = await this.transcribeChunked(file, fileHash, onProgress, chunkSize);
       } else {
-        console.log('File under 24MB, using single transcription');
+        console.log('File under limits, using single transcription');
         transcript = await this.transcribeSingle(file, fileHash);
       }
 
@@ -99,19 +122,20 @@ class TranscriptionService {
   }
 
   /**
-   * Transcribe large file by chunking (>24MB)
+   * Transcribe large file by chunking (>24MB or >1200s)
    * @param {File} file - Audio file
    * @param {string} hash - File hash for caching
    * @param {Function} onProgress - Progress callback
+   * @param {number} chunkSize - Chunk size in bytes (dynamically calculated based on constraints)
    * @returns {Promise<Object>} - Merged transcript with continuous timestamps
    */
-  async transcribeChunked(file, hash, onProgress) {
+  async transcribeChunked(file, hash, onProgress, chunkSize = this.maxChunkSize) {
     // Split file into chunks using byte boundaries
     const chunks = [];
     let offset = 0;
 
     while (offset < file.size) {
-      const end = Math.min(offset + this.maxChunkSize, file.size);
+      const end = Math.min(offset + chunkSize, file.size);
       const chunk = file.slice(offset, end, file.type);
       chunks.push(chunk);
       offset = end;
