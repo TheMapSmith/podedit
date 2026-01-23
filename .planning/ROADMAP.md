@@ -89,10 +89,10 @@ Plans:
   1. User can click "Export" button and download a JSON file with cut timestamps
   2. JSON file contains filename, cut regions with accurate timestamps in format parsable by ffmpeg scripts
   3. User can verify exported JSON contains exactly the cut regions they marked (no missing or extra data)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] TBD during phase planning
+- [ ] 05-01-PLAN.md — ExportService and Export button UI
 
 ## Progress
 
@@ -105,4 +105,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
 | 3. Transcript Navigation | 1/1 | Complete | 2026-01-22 |
 | 4. Cut Point Management | 3/3 | Complete | 2026-01-23 |
-| 5. Export & Finalization | 0/TBD | Not started | - |
+| 5. Export & Finalization | 0/1 | Not started | - |
