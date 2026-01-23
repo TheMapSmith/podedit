@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Transcript-driven audio navigation that makes it fast to find and mark sections to remove from podcast files
-**Current focus:** Phase 4 - Cut Point Management
+**Current focus:** Phase 5 - Export & Finalization
 
 ## Current Position
 
-Phase: 4 of 5 (Cut Point Management)
-Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-01-23 — Completed Phase 4: Cut Point Management
+Phase: 5 of 5 (Export & Finalization)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-23 — Completed 05-01-PLAN.md
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 2 minutes
-- Total execution time: 0.20 hours
+- Total execution time: 0.23 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [████████░░] 80%
 | 02-transcription-integration | 2/2 | 4min | 2min |
 | 03-transcript-navigation | 1/1 | 2min | 2min |
 | 04-cut-point-management | 3/3 | 4min | 1min |
+| 05-export-finalization | 1/3 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (2min), 03-01 (2min), 04-01 (1min), 04-02 (2min), 04-03 (1min)
-- Trend: Very fast (last 2 plans 1 minute each)
+- Last 5 plans: 03-01 (2min), 04-01 (1min), 04-02 (2min), 04-03 (1min), 05-01 (2min)
+- Trend: Consistently fast (1-2 minutes per plan)
 
 *Updated after each plan completion*
 
@@ -79,6 +80,11 @@ Recent decisions affecting current work:
 | Accept multiple time formats (M:SS, MM:SS, H:MM:SS, plain seconds) | 04-03 | Users naturally type timestamps in various formats | Parser reduces friction, improves UX |
 | Visual error feedback over alerts | 04-03 | Red border/background less disruptive than modal alerts | Better user experience during data entry |
 | Enter commits, Escape reverts in inputs | 04-03 | Standard keyboard UX from spreadsheets | Familiar pattern for power users |
+| JSON version field in export | 05-01 | Future compatibility for format changes | Allows parsers to handle different schema versions gracefully |
+| Sort cuts by start time in export | 05-01 | Consistent output regardless of marking order | Makes exported JSON predictable and easier to process |
+| Derive export filename from audio filename | 05-01 | Clear relationship between files | "podcast.mp3" → "podcast-cuts.json" makes matching easy |
+| Revoke object URLs after download | 05-01 | Prevent memory leaks | Browser holds URLs in memory until revoked |
+| Export button enabled only when cuts exist | 05-01 | Prevent exporting empty cut lists | Button state signals when export is available |
 
 ### Pending Todos
 
@@ -97,8 +103,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-23 at 05:29:21Z (plan execution)
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-01-23 at 14:49:51Z (plan execution)
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 
 ## Phase Status
@@ -175,4 +181,17 @@ Deliverables:
 - Keyboard support (Enter commits, Escape reverts)
 - Real-time updates to cut regions and transcript highlighting
 
-Ready for Phase 5 - Export & Finalization
+---
+
+**Phase 5 - Export & Finalization: IN PROGRESS** ⚡
+
+Plans completed: 1/3
+
+**Plan 1 - JSON Export Functionality: COMPLETE** ✓
+- ✅ ExportService with JSON generation and download
+- ✅ Export button with proper enable/disable state management
+- ✅ JSON format with version, filename, timestamp, sorted cuts
+- ✅ Blob API and URL.createObjectURL download triggering
+- ✅ Memory leak prevention via object URL revocation
+
+Next: Plan 2 & 3 for additional export features and final polish
