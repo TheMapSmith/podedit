@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Transcript-driven audio navigation that makes it fast to find and mark sections to remove from podcast files
-**Current focus:** Phase 3 - Transcript Navigation
+**Current focus:** Phase 4 - Cut Point Management
 
 ## Current Position
 
-Phase: 3 of 5 (Transcript Navigation)
-Plan: 1 of 1 in current phase
-Status: Complete
-Last activity: 2026-01-22 — Completed 03-01: Transcript-audio navigation
+Phase: 4 of 5 (Cut Point Management)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-23 — Completed 04-01: Cut region data model
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 2 minutes
-- Total execution time: 0.16 hours
+- Total execution time: 0.17 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [█████░░░░░] 50%
 | 01-audio-playback-foundation | 2/2 | 4min | 2min |
 | 02-transcription-integration | 2/2 | 4min | 2min |
 | 03-transcript-navigation | 1/1 | 2min | 2min |
+| 04-cut-point-management | 1/4 | 1min | 1min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2min), 01-02 (2min), 02-01 (2min), 02-02 (2min), 03-01 (2min)
-- Trend: Consistent (all plans 2 minutes)
+- Last 5 plans: 01-02 (2min), 02-01 (2min), 02-02 (2min), 03-01 (2min), 04-01 (1min)
+- Trend: Accelerating (last plan faster)
 
 *Updated after each plan completion*
 
@@ -67,6 +68,10 @@ Recent decisions affecting current work:
 | Linear search for current word | 03-01 | O(n) sufficient for typical podcast transcripts | Simple implementation, can optimize later if needed |
 | Use gpt-4o-transcribe over whisper-1 | quick-002 | Better accuracy and speaker diarization support | Transcript now uses segments instead of words, speaker labels available |
 | Segment-based UI display | quick-002 | Matches API structure, better visual hierarchy | Each segment is block-level div with padding, fewer DOM elements |
+| Separate pending cuts from completed cuts | 04-01 | User marks start, then marks end - system needs to track incomplete state | Enables visual feedback for incomplete cuts, simpler UI flow |
+| Auto-swap start/end if reversed | 04-01 | Prevents user error, ensures valid cut regions | More forgiving UX, always produces valid regions |
+| Callback pattern for cut updates | 04-01 | Matches existing PlayerController.onTimeUpdate pattern | Consistent with project patterns, simple integration |
+| getCutRegions returns copies | 04-01 | Prevents external code from mutating controller state | Safer state management, prevents accidental mutations |
 
 ### Pending Todos
 
@@ -85,8 +90,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22 at 21:53:27Z (quick task 002 completion)
-Stopped at: Completed quick-002: Switch from whisper-1 to gpt-4o-transcribe
+Last session: 2026-01-23 at 05:18:46Z (plan execution)
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
 
 ## Phase Status
@@ -141,3 +146,22 @@ Deliverables:
 - Yellow highlight (#ffd700) for active word
 
 Ready for Phase 4 - Region Marking
+
+---
+
+**Phase 4 - Cut Point Management: IN PROGRESS**
+
+Plan 04-01 complete:
+- ✅ CutRegion data model with validation methods
+- ✅ CutController state management with CRUD operations
+- ✅ Two-phase marking pattern (start → end)
+- ✅ Callback infrastructure for UI integration
+
+Deliverables (04-01):
+- CutRegion model with isComplete, getDuration, containsTime, overlaps methods
+- CutController with markStart, markEnd, updateCut, deleteCut operations
+- Pending cut state tracking (separate from completed cuts)
+- Auto-swap for reversed start/end times
+- State encapsulation via accessor methods (getCutRegions returns copies)
+
+Next: Plan 04-02 - UI integration (Mark Start/End buttons, cut regions list display)
