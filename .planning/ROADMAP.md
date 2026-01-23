@@ -74,10 +74,12 @@ Plans:
   3. User can see all marked cut regions with clear start/end timestamps (e.g., "Cut 1: 2:15-3:42")
   4. User can manually edit cut region timestamps by typing values directly (e.g., change "2:15" to "2:20")
   5. User can delete a marked cut region and see it removed from the display
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD during phase planning
+- [ ] 04-01-PLAN.md — CutRegion model and CutController core state management
+- [ ] 04-02-PLAN.md — Cut marking UI, cut list display, and transcript highlighting
+- [ ] 04-03-PLAN.md — Editable timestamp inputs with validation
 
 ### Phase 5: Export & Finalization
 **Goal**: User can export cut list as JSON file for downstream ffmpeg scripts
@@ -102,5 +104,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Audio Playback Foundation | 2/2 | Complete | 2026-01-22 |
 | 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
 | 3. Transcript Navigation | 1/1 | Complete | 2026-01-22 |
-| 4. Cut Point Management | 0/TBD | Not started | - |
+| 4. Cut Point Management | 0/3 | Ready | - |
 | 5. Export & Finalization | 0/TBD | Not started | - |
