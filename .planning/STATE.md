@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 4 of 5 (Cut Point Management)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-23 — Completed 04-03: Inline timestamp editing for cut regions
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-01-23 — Completed Phase 4: Cut Point Management
 
 Progress: [████████░░] 80%
 
@@ -30,7 +30,7 @@ Progress: [████████░░] 80%
 | 01-audio-playback-foundation | 2/2 | 4min | 2min |
 | 02-transcription-integration | 2/2 | 4min | 2min |
 | 03-transcript-navigation | 1/1 | 2min | 2min |
-| 04-cut-point-management | 3/4 | 4min | 1min |
+| 04-cut-point-management | 3/3 | 4min | 1min |
 
 **Recent Trend:**
 - Last 5 plans: 02-02 (2min), 03-01 (2min), 04-01 (1min), 04-02 (2min), 04-03 (1min)
@@ -152,49 +152,27 @@ Deliverables:
 - Auto-scroll with smooth centering behavior
 - Yellow highlight (#ffd700) for active word
 
-Ready for Phase 4 - Region Marking
-
 ---
 
-**Phase 4 - Cut Point Management: IN PROGRESS**
+**Phase 4 - Cut Point Management: COMPLETE** ✓
 
-Plan 04-01 complete:
-- ✅ CutRegion data model with validation methods
-- ✅ CutController state management with CRUD operations
-- ✅ Two-phase marking pattern (start → end)
-- ✅ Callback infrastructure for UI integration
+All success criteria met:
+- ✅ User can mark a start point at any position in the transcript/audio
+- ✅ User can mark an end point to complete a cut region, and see the region visually highlighted in the transcript
+- ✅ User can see all marked cut regions with clear start/end timestamps
+- ✅ User can manually edit cut region timestamps by typing values directly
+- ✅ User can delete a marked cut region and see it removed from the display
 
-Deliverables (04-01):
-- CutRegion model with isComplete, getDuration, containsTime, overlaps methods
-- CutController with markStart, markEnd, updateCut, deleteCut operations
-- Pending cut state tracking (separate from completed cuts)
-- Auto-swap for reversed start/end times
-- State encapsulation via accessor methods (getCutRegions returns copies)
-
-Plan 04-02 complete:
-- ✅ Mark Start/End buttons for two-phase cut marking
-- ✅ Cut list panel with timestamps and delete buttons
-- ✅ Visual highlighting of cut regions in transcript
-- ✅ UI integration between CutController and TranscriptController
-
-Deliverables (04-02):
-- Cut section with Mark Start/End buttons and cut list UI
+Deliverables:
+- CutRegion model with validation methods (isComplete, getDuration, containsTime, overlaps)
+- CutController with two-phase marking, CRUD operations, callback pattern
+- Mark Start/End buttons capturing current audio position
+- Pending cut status indicator with Mark End enable/disable logic
+- Cut list panel with delete buttons
 - Yellow/gold transcript highlighting for segments within cut regions
-- Dynamic list rendering with delete functionality
-- Callback handlers for pending cut state and cut list changes
-- formatCutTime helper for timestamp display
+- Editable timestamp inputs with multi-format parsing (M:SS, MM:SS, H:MM:SS, seconds)
+- Input validation with visual feedback (red border for invalid)
+- Keyboard support (Enter commits, Escape reverts)
+- Real-time updates to cut regions and transcript highlighting
 
-Plan 04-03 complete:
-- ✅ Editable timestamp inputs in cut list
-- ✅ Time parsing for M:SS, MM:SS, H:MM:SS, plain seconds
-- ✅ Input validation with visual feedback (red border/background)
-- ✅ Keyboard support (Enter to commit, Escape to revert)
-
-Deliverables (04-03):
-- parseTimeInput function with regex parsing for multiple formats
-- handleTimeInputChange for validation and cut region updates
-- CSS for .cut-time-input with focus and invalid states
-- Event handlers for change, blur, and keydown (Enter/Escape)
-- Real-time transcript highlighting updates on timestamp edit
-
-Next: Plan 04-04 - Cut validation and overlap detection
+Ready for Phase 5 - Export & Finalization

@@ -109,11 +109,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-05 | Phase 2 | Pending |
 | NAV-01 | Phase 3 | Complete |
 | NAV-02 | Phase 3 | Complete |
-| CUT-01 | Phase 4 | Pending |
-| CUT-02 | Phase 4 | Pending |
-| CUT-03 | Phase 4 | Pending |
-| CUT-04 | Phase 4 | Pending |
-| CUT-05 | Phase 4 | Pending |
+| CUT-01 | Phase 4 | Complete |
+| CUT-02 | Phase 4 | Complete |
+| CUT-03 | Phase 4 | Complete |
+| CUT-04 | Phase 4 | Complete |
+| CUT-05 | Phase 4 | Complete |
 | EXPORT-01 | Phase 5 | Pending |
 | EXPORT-02 | Phase 5 | Pending |
 
