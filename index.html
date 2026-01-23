@@ -360,6 +360,7 @@
     import PlayerController from './src/components/playerController.js';
     import TranscriptionService from './src/services/transcriptionService.js';
     import TranscriptController from './src/controllers/transcriptController.js';
+    import CutController from './src/controllers/cutController.js';
     import { validateAudioFile } from './src/services/fileValidator.js';
     import { formatFileSize } from './src/utils/timeFormat.js';
 
@@ -407,6 +408,9 @@
           errorDisplay: elements.transcriptionError
         }, audioService)
       : null;
+
+    // Initialize CutController
+    const cutController = new CutController();
 
     // Wire transcript navigation to player time updates
     if (transcriptController) {
