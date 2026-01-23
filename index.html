@@ -310,6 +310,153 @@
     .transcript-container {
       scroll-behavior: smooth;
     }
+
+    .cut-section {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .cut-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .cut-controls h2 {
+      font-size: 20px;
+      color: #333;
+      margin: 0;
+    }
+
+    .cut-buttons {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #mark-start-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      background: #dc3545;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #mark-start-btn:hover:not(:disabled) {
+      background: #c82333;
+    }
+
+    #mark-start-btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #mark-end-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      background: #28a745;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #mark-end-btn:hover:not(:disabled) {
+      background: #218838;
+    }
+
+    #mark-end-btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .pending-status {
+      font-size: 13px;
+      color: #dc3545;
+      font-weight: 500;
+    }
+
+    .cut-list {
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+    }
+
+    .cut-placeholder {
+      color: #6c757d;
+      font-style: italic;
+      margin: 0;
+    }
+
+    .cut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+    }
+
+    .cut-item-info {
+      font-size: 14px;
+      color: #333;
+    }
+
+    .cut-item-label {
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .cut-item-times {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cut-item-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cut-item-delete {
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #dc3545;
+      background: white;
+      border: 1px solid #dc3545;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .cut-item-delete:hover {
+      background: #dc3545;
+      color: white;
+    }
+
+    /* Transcript segment cut highlighting */
+    .transcript-segment.in-cut-region {
+      background-color: #fff3cd;
+      border-left: 3px solid #ffc107;
+    }
+
+    .transcript-segment.in-cut-region.active {
+      background-color: #ffe066;
+    }
   </style>
 </head>
 <body>
@@ -353,6 +500,21 @@
         <p class="transcript-placeholder">Click "Generate Transcript" to transcribe the audio.</p>
       </div>
     </div>
+
+    <div id="cut-section" class="cut-section hidden">
+      <div class="cut-controls">
+        <h2>Cut Regions</h2>
+        <div class="cut-buttons">
+          <button id="mark-start-btn" disabled>Mark Start</button>
+          <button id="mark-end-btn" disabled>Mark End</button>
+          <span id="pending-cut-status" class="pending-status"></span>
+        </div>
+      </div>
+
+      <div id="cut-list" class="cut-list">
+        <p class="cut-placeholder">No cuts marked yet. Use "Mark Start" and "Mark End" to define regions to remove.</p>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -380,7 +542,12 @@
       progressBar: document.getElementById('progress-bar'),
       progressText: document.getElementById('progress-text'),
       transcriptionError: document.getElementById('transcription-error'),
-      transcriptContainer: document.getElementById('transcript-container')
+      transcriptContainer: document.getElementById('transcript-container'),
+      cutSection: document.getElementById('cut-section'),
+      markStartBtn: document.getElementById('mark-start-btn'),
+      markEndBtn: document.getElementById('mark-end-btn'),
+      pendingCutStatus: document.getElementById('pending-cut-status'),
+      cutList: document.getElementById('cut-list')
     };
 
     // Initialize AudioService and PlayerController
@@ -457,6 +624,10 @@
           transcriptController.setFile(file);
         }
 
+        // Show cut section and enable mark start button
+        elements.cutSection.classList.remove('hidden');
+        elements.markStartBtn.disabled = false;
+
       } catch (error) {
         elements.errorDisplay.textContent = `Failed to load audio: ${error.message}`;
         elements.fileInfo.classList.add('hidden');
@@ -470,6 +641,74 @@
         transcriptController.generateTranscript();
       });
     }
+
+    // Helper to format time for cut display
+    // Note: Output format is M:SS (e.g., "5:30" not "05:30"). This is acceptable
+    // as the input parser in Plan 03 accepts both "5:30" and "05:30" formats.
+    function formatCutTime(seconds) {
+      if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return '--:--';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // Render cut list
+    function renderCutList(cuts) {
+      if (cuts.length === 0) {
+        elements.cutList.innerHTML = '<p class="cut-placeholder">No cuts marked yet. Use "Mark Start" and "Mark End" to define regions to remove.</p>';
+        return;
+      }
+
+      elements.cutList.innerHTML = cuts.map((cut, index) => `
+        <div class="cut-item" data-cut-id="${cut.id}">
+          <div class="cut-item-info">
+            <span class="cut-item-label">Cut ${index + 1}:</span>
+            <span class="cut-item-times">${formatCutTime(cut.startTime)} - ${formatCutTime(cut.endTime)}</span>
+          </div>
+          <div class="cut-item-actions">
+            <button class="cut-item-delete" data-cut-id="${cut.id}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Wire delete buttons
+      elements.cutList.querySelectorAll('.cut-item-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const cutId = e.target.getAttribute('data-cut-id');
+          cutController.deleteCut(cutId);
+        });
+      });
+    }
+
+    // Mark Start button
+    elements.markStartBtn.addEventListener('click', () => {
+      const currentTime = audioService.getCurrentTime();
+      cutController.markStart(currentTime);
+    });
+
+    // Mark End button
+    elements.markEndBtn.addEventListener('click', () => {
+      const currentTime = audioService.getCurrentTime();
+      cutController.markEnd(currentTime);
+    });
+
+    // CutController callbacks
+    cutController.onPendingCutChanged = (pendingCut) => {
+      if (pendingCut) {
+        elements.pendingCutStatus.textContent = `Start marked at ${formatCutTime(pendingCut.startTime)}`;
+        elements.markEndBtn.disabled = false;
+      } else {
+        elements.pendingCutStatus.textContent = '';
+        elements.markEndBtn.disabled = true;
+      }
+    };
+
+    cutController.onCutListChanged = (cuts) => {
+      renderCutList(cuts);
+      if (transcriptController && transcriptController.transcript) {
+        transcriptController.highlightCutRegions(cuts);
+      }
+    };
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
