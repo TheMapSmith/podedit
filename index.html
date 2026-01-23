@@ -388,6 +388,34 @@
       font-weight: 500;
     }
 
+    .export-controls {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #dee2e6;
+    }
+
+    #export-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      background: #007bff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #export-btn:hover:not(:disabled) {
+      background: #0056b3;
+    }
+
+    #export-btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
     .cut-list {
       max-height: 200px;
       overflow-y: auto;
@@ -541,6 +569,10 @@
       <div id="cut-list" class="cut-list">
         <p class="cut-placeholder">No cuts marked yet. Use "Mark Start" and "Mark End" to define regions to remove.</p>
       </div>
+
+      <div class="export-controls">
+        <button id="export-btn" disabled>Export Cuts</button>
+      </div>
     </div>
   </div>
 
@@ -550,6 +582,7 @@
     import TranscriptionService from './src/services/transcriptionService.js';
     import TranscriptController from './src/controllers/transcriptController.js';
     import CutController from './src/controllers/cutController.js';
+    import ExportService from './src/services/exportService.js';
     import { validateAudioFile } from './src/services/fileValidator.js';
     import { formatFileSize } from './src/utils/timeFormat.js';
 
@@ -574,7 +607,8 @@
       markStartBtn: document.getElementById('mark-start-btn'),
       markEndBtn: document.getElementById('mark-end-btn'),
       pendingCutStatus: document.getElementById('pending-cut-status'),
-      cutList: document.getElementById('cut-list')
+      cutList: document.getElementById('cut-list'),
+      exportBtn: document.getElementById('export-btn')
     };
 
     // Initialize AudioService and PlayerController
@@ -605,6 +639,9 @@
 
     // Initialize CutController
     const cutController = new CutController();
+
+    // Initialize ExportService
+    const exportService = new ExportService();
 
     // Wire transcript navigation to player time updates
     if (transcriptController) {
@@ -863,7 +900,16 @@
       if (transcriptController && transcriptController.transcript) {
         transcriptController.highlightCutRegions(cuts);
       }
+      // Enable/disable export button based on cuts availability
+      elements.exportBtn.disabled = cuts.length === 0;
     };
+
+    // Export button click handler
+    elements.exportBtn.addEventListener('click', () => {
+      const cuts = cutController.getCutRegions();
+      const filename = elements.fileInput.files[0]?.name || 'audio.mp3';
+      exportService.export(filename, cuts);
+    });
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
