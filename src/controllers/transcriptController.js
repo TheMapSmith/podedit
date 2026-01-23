@@ -314,6 +314,51 @@ class TranscriptController {
   }
 
   /**
+   * Highlight transcript segments that fall within cut regions
+   * @param {CutRegion[]} cutRegions - Array of cut regions
+   */
+  highlightCutRegions(cutRegions) {
+    // Guard: no transcript loaded
+    if (!this.transcript || !this.transcript.segments) {
+      return;
+    }
+
+    const segmentElements = this.elements.transcriptContainer.querySelectorAll('.transcript-segment');
+
+    segmentElements.forEach((element, index) => {
+      const segment = this.transcript.segments[index];
+      if (!segment) return;
+
+      // Check if this segment overlaps with any cut region
+      // Note: cut.isComplete() is a method on CutRegion, not a property
+      const isInCut = cutRegions.some(cut => {
+        if (!cut.isComplete()) {
+          return false;
+        }
+        // Segment overlaps cut if: segment.start < cut.end AND segment.end > cut.start
+        return segment.start < cut.endTime && segment.end > cut.startTime;
+      });
+
+      // Toggle the in-cut-region class
+      if (isInCut) {
+        element.classList.add('in-cut-region');
+      } else {
+        element.classList.remove('in-cut-region');
+      }
+    });
+  }
+
+  /**
+   * Clear all cut region highlighting from transcript
+   */
+  clearCutHighlights() {
+    const segmentElements = this.elements.transcriptContainer.querySelectorAll('.transcript-segment');
+    segmentElements.forEach(element => {
+      element.classList.remove('in-cut-region');
+    });
+  }
+
+  /**
    * Clean up resources
    * Should be called when done with controller
    */
@@ -322,6 +367,9 @@ class TranscriptController {
     if (this.scrollTimeout) {
       clearTimeout(this.scrollTimeout);
     }
+
+    // Clear cut highlights
+    this.clearCutHighlights();
 
     // Reset navigation state
     this.currentSegmentIndex = -1;
