@@ -68,8 +68,8 @@ class TranscriptionService {
         transcript = await this.transcribeSingle(file, fileHash);
       }
 
-      // Cache the result
-      await this.cacheService.set(fileHash, transcript);
+      // Cache the result with filename for index
+      await this.cacheService.set(fileHash, transcript, file.name);
 
       return transcript;
     } catch (error) {
