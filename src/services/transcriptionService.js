@@ -35,7 +35,7 @@ class TranscriptionService {
    * Transcribe audio file with automatic caching and chunking
    * @param {File} file - Audio file to transcribe
    * @param {Function} onProgress - Progress callback (0-1) for chunked transcription
-   * @returns {Promise<Object>} - Transcript with text, segments array, and duration
+   * @returns {Promise<Object>} - Transcript with text, words array, and duration
    */
   async transcribe(file, onProgress) {
     try {
@@ -87,9 +87,9 @@ class TranscriptionService {
   async transcribeSingle(file, hash) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('model', 'gpt-4o-transcribe-diarize');
-    formData.append('response_format', 'diarized_json');
-    formData.append('chunking_strategy', 'auto');
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'verbose_json');
+    formData.append('timestamp_granularities[]', 'word');
 
     try {
       const response = await fetch(this.apiUrl, {
@@ -161,9 +161,9 @@ class TranscriptionService {
       // Transcribe chunk
       const formData = new FormData();
       formData.append('file', chunkFile);
-      formData.append('model', 'gpt-4o-transcribe-diarize');
-      formData.append('response_format', 'diarized_json');
-      formData.append('chunking_strategy', 'auto');
+      formData.append('model', 'whisper-1');
+      formData.append('response_format', 'verbose_json');
+      formData.append('timestamp_granularities[]', 'word');
 
       try {
         const response = await fetch(this.apiUrl, {
@@ -182,22 +182,22 @@ class TranscriptionService {
         const result = await response.json();
 
         // Adjust timestamps for continuity
-        if (result.segments && Array.isArray(result.segments)) {
-          result.segments.forEach(segment => {
-            segment.start += cumulativeDuration;
-            segment.end += cumulativeDuration;
+        if (result.words && Array.isArray(result.words)) {
+          result.words.forEach(word => {
+            word.start += cumulativeDuration;
+            word.end += cumulativeDuration;
           });
         }
 
         results.push(result);
 
         // Update cumulative duration for next chunk
-        // Use duration from API response, fallback to last segment's end time
+        // Use duration from API response, fallback to last word's end time
         if (result.duration) {
           cumulativeDuration += result.duration;
-        } else if (result.segments && result.segments.length > 0) {
-          const lastSegment = result.segments[result.segments.length - 1];
-          cumulativeDuration = lastSegment.end;
+        } else if (result.words && result.words.length > 0) {
+          const lastWord = result.words[result.words.length - 1];
+          cumulativeDuration = lastWord.end;
         }
 
         // Report progress
@@ -213,7 +213,7 @@ class TranscriptionService {
     // Merge results
     const merged = {
       text: results.map(r => r.text).join(' '),
-      segments: results.flatMap(r => r.segments || []),
+      words: results.flatMap(r => r.words || []),
       duration: cumulativeDuration,
       language: results[0]?.language || 'unknown',
       chunks: chunks.length // Metadata for debugging
