@@ -512,11 +512,70 @@
     .transcript-segment.in-cut-region.active {
       background-color: #ffe066;
     }
+
+    /* Transcript history section */
+    .transcript-history {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .transcript-history h2 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-item {
+      padding: 10px 12px;
+      margin: 4px 0;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s, border-color 0.15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-item:hover {
+      background-color: #e9ecef;
+      border-color: #adb5bd;
+    }
+
+    .history-item-filename {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .history-item-timestamp {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .transcript-history.empty {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>PodEdit</h1>
+
+    <div id="transcript-history" class="transcript-history empty">
+      <h2>Previous Transcripts</h2>
+      <ul id="history-list" class="history-list"></ul>
+    </div>
 
     <div class="file-upload">
       <input type="file" id="file-input" accept="audio/*">
@@ -608,7 +667,9 @@
       markEndBtn: document.getElementById('mark-end-btn'),
       pendingCutStatus: document.getElementById('pending-cut-status'),
       cutList: document.getElementById('cut-list'),
-      exportBtn: document.getElementById('export-btn')
+      exportBtn: document.getElementById('export-btn'),
+      transcriptHistory: document.getElementById('transcript-history'),
+      historyList: document.getElementById('history-list')
     };
 
     // Initialize AudioService and PlayerController
@@ -649,6 +710,88 @@
         transcriptController.onTimeUpdate(currentTime);
       };
     }
+
+    // Helper: Format relative time (e.g., "2 hours ago")
+    function formatRelativeTime(timestamp) {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+      if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      return 'just now';
+    }
+
+    // Load and render transcript history
+    async function loadTranscriptHistory() {
+      if (!transcriptionService) return;
+
+      const index = await transcriptionService.cacheService.getIndex();
+
+      if (index.length === 0) {
+        elements.transcriptHistory.classList.add('empty');
+        return;
+      }
+
+      elements.transcriptHistory.classList.remove('empty');
+      elements.historyList.innerHTML = index.map(entry => `
+        <li class="history-item" data-hash="${entry.hash}">
+          <span class="history-item-filename">${entry.filename}</span>
+          <span class="history-item-timestamp">${formatRelativeTime(entry.timestamp)}</span>
+        </li>
+      `).join('');
+
+      // Wire up click handlers
+      elements.historyList.querySelectorAll('.history-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+          const hash = e.currentTarget.getAttribute('data-hash');
+          await loadTranscriptFromHistory(hash);
+        });
+      });
+    }
+
+    // Load transcript from cache by hash
+    async function loadTranscriptFromHistory(hash) {
+      if (!transcriptController || !transcriptionService) return;
+
+      try {
+        // Retrieve transcript from cache
+        const transcript = await transcriptionService.cacheService.get(hash);
+
+        if (!transcript) {
+          elements.errorDisplay.textContent = 'Failed to load transcript from cache';
+          return;
+        }
+
+        // Clear any errors
+        elements.errorDisplay.textContent = '';
+
+        // Set transcript on controller
+        transcriptController.transcript = transcript;
+
+        // Render transcript
+        transcriptController.renderTranscript();
+
+        // Show transcription section
+        elements.transcriptionSection.classList.remove('hidden');
+
+        // Hide progress
+        elements.transcriptionProgress.classList.add('hidden');
+
+        // Note: Audio is NOT loaded - user must upload file for playback
+        console.log('Loaded transcript from cache:', hash);
+      } catch (error) {
+        elements.errorDisplay.textContent = `Failed to load transcript: ${error.message}`;
+        console.error('History load error:', error);
+      }
+    }
+
+    // Initialize transcript history on page load
+    loadTranscriptHistory();
 
     // File input change handler
     elements.fileInput.addEventListener('change', async (event) => {
@@ -701,8 +844,10 @@
 
     // Wire up generate transcript button
     if (transcriptController) {
-      elements.generateTranscriptBtn.addEventListener('click', () => {
-        transcriptController.generateTranscript();
+      elements.generateTranscriptBtn.addEventListener('click', async () => {
+        await transcriptController.generateTranscript();
+        // Refresh history list after successful transcription
+        await loadTranscriptHistory();
       });
     }
 
