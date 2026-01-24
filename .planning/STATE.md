@@ -67,8 +67,7 @@ Recent decisions affecting current work:
 | 1500ms scroll timeout | 03-01 | Distinguishes manual vs programmatic scrolling | Auto-scroll pauses during user interaction, resumes automatically |
 | scrollIntoView with block: 'center' | 03-01 | Centers active word for better visibility and context | More prominent than 'start' or 'nearest' positioning |
 | Linear search for current word | 03-01 | O(n) sufficient for typical podcast transcripts | Simple implementation, can optimize later if needed |
-| Use gpt-4o-transcribe over whisper-1 | quick-002 | Better accuracy and speaker diarization support | Transcript now uses segments instead of words, speaker labels available |
-| Segment-based UI display | quick-002 | Matches API structure, better visual hierarchy | Each segment is block-level div with padding, fewer DOM elements |
+| Use whisper-1 over gpt-4o-transcribe | quick-004 | Return to word-level granularity for finer navigation control | Transcript uses words array with inline spans, no speaker diarization |
 | Separate pending cuts from completed cuts | 04-01 | User marks start, then marks end - system needs to track incomplete state | Enables visual feedback for incomplete cuts, simpler UI flow |
 | Auto-swap start/end if reversed | 04-01 | Prevents user error, ensures valid cut regions | More forgiving UX, always produces valid regions |
 | Callback pattern for cut updates | 04-01 | Matches existing PlayerController.onTimeUpdate pattern | Consistent with project patterns, simple integration |
@@ -104,11 +103,12 @@ None yet.
 | 001 | File extension .m4a doesn't match MIME type audio/mpeg | 2026-01-22 | 4dd7208 | [001-file-extension-m4a-doesn-t-match-mime-ty](./quick/001-file-extension-m4a-doesn-t-match-mime-ty/) |
 | 002 | Switch from whisper-1 to gpt-4o-transcribe model | 2026-01-22 | 23004de | [002-switch-from-whisper-1-to-gpt-4o-transcri](./quick/002-switch-from-whisper-1-to-gpt-4o-transcri/) |
 | 003 | Verify large file chunking - API also has duration limit | 2026-01-23 | cd8395f | [003-verify-large-file-chunking-the-api-also-](./quick/003-verify-large-file-chunking-the-api-also-/) |
+| 004 | Revert to whisper-1 API instead of gpt-4o-transcribe | 2026-01-24 | 887273a | [004-revert-to-whisper-api-instead-of-4o-tran](./quick/004-revert-to-whisper-api-instead-of-4o-tran/) |
 
 ## Session Continuity
 
-Last session: 2026-01-23 at 15:27:17Z (quick task execution)
-Stopped at: Completed quick task 003
+Last session: 2026-01-24 at 01:41:56Z (quick task execution)
+Stopped at: Completed quick task 004
 Resume file: None
 
 ## Phase Status
