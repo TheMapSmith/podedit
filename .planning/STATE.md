@@ -87,6 +87,9 @@ Recent decisions affecting current work:
 | Duration-aware chunking with 1200s limit | quick-003 | API has 1400s duration limit per request | Prevents transcription failures on long, low-bitrate files |
 | Conservative 64kbps bitrate for duration estimation | quick-003 | Over-estimates duration to chunk more aggressively | Safer than under-estimating and exceeding API limits |
 | Chunk count = max(chunksBySize, chunksByDuration) | quick-003 | Whichever constraint requires more chunks wins | Ensures both 24MB size AND 1400s duration limits respected |
+| Separate transcript_index store for metadata | quick-005 | IndexedDB doesn't efficiently list entries without loading full data | Fast history list rendering without parsing large JSON strings |
+| Relative timestamps in history list | quick-005 | More intuitive for recent work sessions | Better UX, immediate sense of recency |
+| Load transcript without audio file | quick-005 | Users want to review/search old transcripts | History useful for review, audio playback requires file upload |
 
 ### Pending Todos
 
@@ -104,11 +107,12 @@ None yet.
 | 002 | Switch from whisper-1 to gpt-4o-transcribe model | 2026-01-22 | 23004de | [002-switch-from-whisper-1-to-gpt-4o-transcri](./quick/002-switch-from-whisper-1-to-gpt-4o-transcri/) |
 | 003 | Verify large file chunking - API also has duration limit | 2026-01-23 | cd8395f | [003-verify-large-file-chunking-the-api-also-](./quick/003-verify-large-file-chunking-the-api-also-/) |
 | 004 | Revert to whisper-1 API instead of gpt-4o-transcribe | 2026-01-24 | 887273a | [004-revert-to-whisper-api-instead-of-4o-tran](./quick/004-revert-to-whisper-api-instead-of-4o-tran/) |
+| 005 | Add transcript history list to return to previous transcripts | 2026-01-24 | a8126f4 | [005-make-a-list-on-the-page-of-transcripts-s](./quick/005-make-a-list-on-the-page-of-transcripts-s/) |
 
 ## Session Continuity
 
-Last session: 2026-01-24 at 01:41:56Z (quick task execution)
-Stopped at: Completed quick task 004
+Last session: 2026-01-24 at 04:12:31Z (quick task execution)
+Stopped at: Completed quick task 005
 Resume file: None
 
 ## Phase Status
