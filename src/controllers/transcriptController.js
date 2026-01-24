@@ -25,8 +25,8 @@ class TranscriptController {
     this.isTranscribing = false;
 
     // Navigation state
-    this.currentSegmentIndex = -1;
-    this.activeSegment = null;
+    this.currentWordIndex = -1;
+    this.activeWord = null;
     this.userIsScrolling = false;
     this.scrollTimeout = null;
 
@@ -117,39 +117,27 @@ class TranscriptController {
 
   /**
    * Render transcript in the UI
-   * Creates segment divs with timestamp data attributes
+   * Creates inline word spans with timestamp data attributes
    */
   renderTranscript() {
     // Clear container
     this.elements.transcriptContainer.innerHTML = '';
 
-    // Check if transcript has segments
-    if (!this.transcript || !this.transcript.segments || this.transcript.segments.length === 0) {
+    // Check if transcript has words
+    if (!this.transcript || !this.transcript.words || this.transcript.words.length === 0) {
       this.elements.transcriptContainer.innerHTML = '<p class="transcript-placeholder">No transcript available</p>';
       return;
     }
 
-    // Create segment divs
-    for (const segment of this.transcript.segments) {
-      const div = document.createElement('div');
-      div.className = 'transcript-segment';
-      div.setAttribute('data-start', segment.start);
-      div.setAttribute('data-end', segment.end);
+    // Create word spans
+    for (const word of this.transcript.words) {
+      const span = document.createElement('span');
+      span.className = 'transcript-word';
+      span.setAttribute('data-start', word.start);
+      span.setAttribute('data-end', word.end);
+      span.textContent = word.word + ' ';
 
-      // Add speaker label if present
-      if (segment.speaker) {
-        div.setAttribute('data-speaker', segment.speaker);
-        const label = document.createElement('span');
-        label.className = 'speaker-label';
-        label.textContent = segment.speaker + ': ';
-        div.appendChild(label);
-      }
-
-      // Add segment text
-      const textNode = document.createTextNode(segment.text);
-      div.appendChild(textNode);
-
-      this.elements.transcriptContainer.appendChild(div);
+      this.elements.transcriptContainer.appendChild(span);
     }
   }
 
@@ -193,19 +181,19 @@ class TranscriptController {
    */
   setupClickToSeek() {
     this.elements.transcriptContainer.addEventListener('click', (event) => {
-      // Find clicked segment using event delegation
-      const segmentElement = event.target.closest('.transcript-segment');
-      if (!segmentElement) return;
+      // Find clicked word using event delegation
+      const wordElement = event.target.closest('.transcript-word');
+      if (!wordElement) return;
 
       // Parse start time from data attribute
-      const startTime = parseFloat(segmentElement.getAttribute('data-start'));
+      const startTime = parseFloat(wordElement.getAttribute('data-start'));
       if (isNaN(startTime)) return;
 
       // Seek audio to that timestamp
       this.audioService.seek(startTime);
 
-      // Immediately update highlight on clicked segment
-      this.updateHighlight(segmentElement);
+      // Immediately update highlight on clicked word
+      this.updateHighlight(wordElement);
     });
   }
 
@@ -235,47 +223,47 @@ class TranscriptController {
    * @param {number} currentTime - Current playback time in seconds
    */
   onTimeUpdate(currentTime) {
-    // Guard: no transcript or no segments
-    if (!this.transcript || !this.transcript.segments || this.transcript.segments.length === 0) {
+    // Guard: no transcript or no words
+    if (!this.transcript || !this.transcript.words || this.transcript.words.length === 0) {
       return;
     }
 
-    // Find current segment index
-    const newIndex = this.findCurrentSegmentIndex(currentTime);
+    // Find current word index
+    const newIndex = this.findCurrentWordIndex(currentTime);
 
     // Only update if index changed and is valid
-    if (newIndex !== this.currentSegmentIndex && newIndex >= 0) {
-      this.currentSegmentIndex = newIndex;
+    if (newIndex !== this.currentWordIndex && newIndex >= 0) {
+      this.currentWordIndex = newIndex;
 
-      // Get segment element from container
-      const segmentElement = this.elements.transcriptContainer.children[newIndex];
-      if (segmentElement) {
-        this.updateHighlight(segmentElement);
+      // Get word element from container
+      const wordElement = this.elements.transcriptContainer.children[newIndex];
+      if (wordElement) {
+        this.updateHighlight(wordElement);
       }
     }
   }
 
   /**
-   * Find the index of the segment at the current time
+   * Find the index of the word at the current time
    * @param {number} currentTime - Current playback time in seconds
-   * @returns {number} - Index of current segment, or -1 if not found
+   * @returns {number} - Index of current word, or -1 if not found
    * @private
    */
-  findCurrentSegmentIndex(currentTime) {
-    const segments = this.transcript.segments;
+  findCurrentWordIndex(currentTime) {
+    const words = this.transcript.words;
 
-    // Linear search through segments
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i];
-      // Check if currentTime falls within this segment's range
-      if (segment.start <= currentTime && currentTime < segment.end) {
+    // Linear search through words
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      // Check if currentTime falls within this word's range
+      if (word.start <= currentTime && currentTime < word.end) {
         return i;
       }
     }
 
-    // Fallback: return last segment where start <= currentTime
-    for (let i = segments.length - 1; i >= 0; i--) {
-      if (segments[i].start <= currentTime) {
+    // Fallback: return last word where start <= currentTime
+    for (let i = words.length - 1; i >= 0; i--) {
+      if (words[i].start <= currentTime) {
         return i;
       }
     }
@@ -285,23 +273,23 @@ class TranscriptController {
   }
 
   /**
-   * Update highlight to the new active segment
-   * @param {HTMLElement} newActiveSegment - New segment element to highlight
+   * Update highlight to the new active word
+   * @param {HTMLElement} newActiveWord - New word element to highlight
    * @private
    */
-  updateHighlight(newActiveSegment) {
-    // Remove 'active' class from previous segment
-    if (this.activeSegment) {
-      this.activeSegment.classList.remove('active');
+  updateHighlight(newActiveWord) {
+    // Remove 'active' class from previous word
+    if (this.activeWord) {
+      this.activeWord.classList.remove('active');
     }
 
-    // Add 'active' class to new segment
-    if (newActiveSegment) {
-      newActiveSegment.classList.add('active');
+    // Add 'active' class to new word
+    if (newActiveWord) {
+      newActiveWord.classList.add('active');
 
       // Auto-scroll if user is not manually scrolling
       if (!this.userIsScrolling) {
-        newActiveSegment.scrollIntoView({
+        newActiveWord.scrollIntoView({
           behavior: 'smooth',
           block: 'center',
           inline: 'nearest'
@@ -309,34 +297,34 @@ class TranscriptController {
       }
     }
 
-    // Store new active segment
-    this.activeSegment = newActiveSegment;
+    // Store new active word
+    this.activeWord = newActiveWord;
   }
 
   /**
-   * Highlight transcript segments that fall within cut regions
+   * Highlight transcript words that fall within cut regions
    * @param {CutRegion[]} cutRegions - Array of cut regions
    */
   highlightCutRegions(cutRegions) {
     // Guard: no transcript loaded
-    if (!this.transcript || !this.transcript.segments) {
+    if (!this.transcript || !this.transcript.words) {
       return;
     }
 
-    const segmentElements = this.elements.transcriptContainer.querySelectorAll('.transcript-segment');
+    const wordElements = this.elements.transcriptContainer.querySelectorAll('.transcript-word');
 
-    segmentElements.forEach((element, index) => {
-      const segment = this.transcript.segments[index];
-      if (!segment) return;
+    wordElements.forEach((element, index) => {
+      const word = this.transcript.words[index];
+      if (!word) return;
 
-      // Check if this segment overlaps with any cut region
+      // Check if this word overlaps with any cut region
       // Note: cut.isComplete() is a method on CutRegion, not a property
       const isInCut = cutRegions.some(cut => {
         if (!cut.isComplete()) {
           return false;
         }
-        // Segment overlaps cut if: segment.start < cut.end AND segment.end > cut.start
-        return segment.start < cut.endTime && segment.end > cut.startTime;
+        // Word overlaps cut if: word.start < cut.end AND word.end > cut.start
+        return word.start < cut.endTime && word.end > cut.startTime;
       });
 
       // Toggle the in-cut-region class
@@ -352,8 +340,8 @@ class TranscriptController {
    * Clear all cut region highlighting from transcript
    */
   clearCutHighlights() {
-    const segmentElements = this.elements.transcriptContainer.querySelectorAll('.transcript-segment');
-    segmentElements.forEach(element => {
+    const wordElements = this.elements.transcriptContainer.querySelectorAll('.transcript-word');
+    wordElements.forEach(element => {
       element.classList.remove('in-cut-region');
     });
   }
@@ -372,8 +360,8 @@ class TranscriptController {
     this.clearCutHighlights();
 
     // Reset navigation state
-    this.currentSegmentIndex = -1;
-    this.activeSegment = null;
+    this.currentWordIndex = -1;
+    this.activeWord = null;
     this.userIsScrolling = false;
     this.scrollTimeout = null;
 
