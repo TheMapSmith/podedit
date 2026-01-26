@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-22)
+See: .planning/PROJECT.md (updated 2026-01-26)
 
-**Core value:** Transcript-driven audio navigation that makes it fast to find and mark sections to remove from podcast files
-**Current focus:** Phase 5 - Export & Finalization
+**Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
+**Current focus:** Milestone v2.0 - In-Browser Audio Processing
 
 ## Current Position
 
-Phase: 5 of 5 (Export & Finalization)
-Plan: 1 of 1 in current phase
-Status: Complete
-Last activity: 2026-01-24 — Completed quick task 005: Add transcript history list
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v2.0
+Last activity: 2026-01-26 — Milestone v2.0 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
