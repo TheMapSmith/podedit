@@ -1,653 +1,734 @@
-# Architecture Research
+# Architecture Research: FFmpeg.wasm Integration
 
-**Domain:** Audio/Transcript Web Application
-**Researched:** 2026-01-22
+**Domain:** Browser-based podcast audio processing
+**Researched:** 2026-01-26
 **Confidence:** HIGH
 
-## Standard Architecture
+## Existing Architecture Overview
 
-### System Overview
+PodEdit uses vanilla JavaScript with clear controller/service separation:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer                        │
+│                        UI Layer                              │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │ Player   │  │ Transcript│  │ Cut      │                   │
+│  │Controller│  │Controller│  │Controller│                   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
+│       │             │             │                          │
+├───────┴─────────────┴─────────────┴──────────────────────────┤
+│                        Service Layer                         │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │  Upload  │  │  Player  │  │Transcript│  │  Editor  │    │
-│  │Component │  │Component │  │Component │  │Component │    │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
-│       │             │              │             │          │
-├───────┴─────────────┴──────────────┴─────────────┴──────────┤
-│                    State Management                          │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │  Audio State │ Transcript State │ Cut Points State  │   │
-│  └───────────────────────────────────────────────────────┘   │
+│  │  Audio   │  │Transcribe│  │  Export  │  │  Cache   │    │
+│  │ Service  │  │ Service  │  │ Service  │  │ Service  │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
 ├─────────────────────────────────────────────────────────────┤
-│                      Service Layer                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ Audio Service│  │Transcription │  │Export Service│      │
-│  │ (Web Audio)  │  │   Service    │  │   (JSON)     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-├─────────────────────────────────────────────────────────────┤
-│                     Storage Layer                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │IndexedDB │  │  Memory  │  │ File API │                  │
-│  │(optional)│  │  (state) │  │  (temp)  │                  │
-│  └──────────┘  └──────────┘  └──────────┘                  │
+│                        Data Layer                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │ HTML5    │  │IndexedDB │  │CutRegion │                   │
+│  │  Audio   │  │  Cache   │  │  Model   │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
 └─────────────────────────────────────────────────────────────┘
-
-External:  [Transcription API] ──(async)──> Transcription Service
 ```
 
-### Component Responsibilities
+### Existing Component Responsibilities
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| Upload Component | Handle file selection, validate audio format, trigger storage | HTML5 file input + drag-and-drop |
-| Player Component | Audio playback, seek, pause/play, time tracking | HTML5 `<audio>` element with Web Audio API |
-| Transcript Component | Display transcript, sync highlighting with audio time | Virtualized list with direct DOM manipulation |
-| Editor Component | Mark cut points (start/end pairs), manage selections | Controlled inputs with local state |
-| Audio Service | Manage audio element lifecycle, handle seek operations | Wrapper around HTML5 Audio + Web Audio API |
-| Transcription Service | Poll/webhook API, handle async progress, parse results | Async state machine with polling |
-| Export Service | Generate JSON, trigger browser download | Blob API + data URI download |
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| AudioService | Manages HTML5 Audio element for streaming playback | Blob URL creation, event handling, cleanup |
+| CutController | Manages cut region state (mark start/end pairs) | Array of CutRegion models with callbacks |
+| TranscriptController | Renders transcript, handles word navigation | DOM manipulation, timestamp parsing |
+| ExportService | Downloads JSON with cut timestamps | Blob creation for file download |
+| PlayerController | UI state coordination (play/pause, seek) | RequestAnimationFrame updates |
 
-## Recommended Project Structure
+## New Architecture for V2.0
+
+### Extended System Overview
 
 ```
-src/
-├── components/           # UI components
-│   ├── upload/          # File upload component
-│   │   ├── FileUpload.tsx
-│   │   └── FileUpload.types.ts
-│   ├── player/          # Audio player controls
-│   │   ├── AudioPlayer.tsx
-│   │   ├── PlayerControls.tsx
-│   │   └── player.types.ts
-│   ├── transcript/      # Transcript display and navigation
-│   │   ├── TranscriptView.tsx
-│   │   ├── TranscriptWord.tsx
-│   │   └── transcript.types.ts
-│   └── editor/          # Cut point marking UI
-│       ├── CutPointEditor.tsx
-│       ├── CutPointList.tsx
-│       └── editor.types.ts
-├── services/            # Business logic and external integrations
-│   ├── audio/          # Audio playback management
-│   │   ├── AudioService.ts
-│   │   └── audioContext.ts
-│   ├── transcription/  # API integration
-│   │   ├── TranscriptionService.ts
-│   │   ├── polling.ts
-│   │   └── api.types.ts
-│   └── export/         # JSON export functionality
-│       └── ExportService.ts
-├── hooks/              # Custom React hooks
-│   ├── useAudioPlayer.ts
-│   ├── useTranscript.ts
-│   ├── useCutPoints.ts
-│   └── useTranscriptionJob.ts
-├── store/              # State management
-│   ├── audioStore.ts
-│   ├── transcriptStore.ts
-│   └── cutPointsStore.ts
-├── types/              # TypeScript types and interfaces
-│   ├── audio.types.ts
-│   ├── transcript.types.ts
-│   ├── cutpoint.types.ts
-│   └── index.ts
-├── utils/              # Utility functions
-│   ├── timeUtils.ts   # Time formatting, unit conversions
-│   ├── fileUtils.ts   # File validation, format detection
-│   └── downloadUtils.ts
-└── App.tsx             # Main application component
+┌─────────────────────────────────────────────────────────────┐
+│                        UI Layer                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │ Player   │  │Transcript│  │   Cut    │  │Processing│    │
+│  │Controller│  │Controller│  │Controller│  │Controller│ NEW│
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
+│       │             │             │             │           │
+├───────┴─────────────┴─────────────┴─────────────┴───────────┤
+│                        Service Layer                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │  Audio   │  │Transcribe│  │  Export  │  │Processing│NEW │
+│  │ Service  │  │ Service  │  │ Service  │  │ Service  │    │
+│  └──────────┘  └──────────┘  └────┬─────┘  └────┬─────┘    │
+├───────────────────────────────────┴──────────────┴──────────┤
+│                        Processing Layer                  NEW │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              FFmpeg.wasm Instance                    │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │    │
+│  │  │ Web      │  │ Virtual  │  │WASM Core │          │    │
+│  │  │ Worker   │  │File Sys  │  │(Engine)  │          │    │
+│  │  └──────────┘  └──────────┘  └──────────┘          │    │
+│  └─────────────────────────────────────────────────────┘    │
+├─────────────────────────────────────────────────────────────┤
+│                        Data Layer                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │ HTML5    │  │IndexedDB │  │CutRegion │                   │
+│  │  Audio   │  │  Cache   │  │  Model   │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Structure Rationale
+### New Component Responsibilities
 
-- **components/**: Organized by feature domain (upload, player, transcript, editor). Each feature folder contains related components and types, making it easy to locate functionality and modify a specific part of the app without affecting others.
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| ProcessingService | Orchestrates FFmpeg.wasm for audio processing | FFmpeg instance lifecycle, command construction |
+| ProcessingController | UI for process trigger, progress display | Button state, progress bar updates |
+| ExportService (extended) | Downloads both JSON and processed audio | Add downloadAudio() method alongside downloadJson() |
 
-- **services/**: Encapsulates external integrations and complex business logic. Services are framework-agnostic and testable in isolation, preventing React components from becoming bloated with API logic.
+## Data Flow: Cut Marks → FFmpeg → Download
 
-- **hooks/**: Custom hooks provide reusable stateful logic. Each hook corresponds to a major domain concept (audio player, transcript, cut points), making them composable and easier to test.
-
-- **store/**: State management separated by domain. Using Zustand or similar lightweight solutions provides global state without prop drilling while keeping each store focused on a single concern.
-
-- **types/**: Centralized TypeScript definitions ensure type safety across the application. Using branded types for time units (seconds vs milliseconds) prevents unit-mismatch bugs in time-based calculations.
-
-## Architectural Patterns
-
-### Pattern 1: HTML5 Audio + Web Audio API Hybrid
-
-**What:** Use HTML5 `<audio>` element for playback and seeking, optionally enhanced with Web Audio API for advanced processing.
-
-**When to use:** When you need simple, reliable playback with programmatic seek functionality. This is the recommended approach for most audio playback scenarios.
-
-**Trade-offs:**
-- Pros: Built-in streaming support, native seek, simple API, works without AudioContext
-- Cons: Limited audio processing capabilities compared to pure Web Audio API
-
-**Example:**
-```typescript
-// AudioService.ts
-class AudioService {
-  private audioElement: HTMLAudioElement;
-  private audioContext?: AudioContext;
-
-  constructor() {
-    this.audioElement = new Audio();
-
-    // Optional: Connect to Web Audio API for processing
-    // this.audioContext = new AudioContext();
-    // const source = this.audioContext.createMediaElementSource(this.audioElement);
-    // source.connect(this.audioContext.destination);
-  }
-
-  load(audioFile: File) {
-    const url = URL.createObjectURL(audioFile);
-    this.audioElement.src = url;
-  }
-
-  play() {
-    return this.audioElement.play();
-  }
-
-  pause() {
-    this.audioElement.pause();
-  }
-
-  seek(timeInSeconds: number) {
-    this.audioElement.currentTime = timeInSeconds;
-  }
-
-  getCurrentTime(): number {
-    return this.audioElement.currentTime;
-  }
-
-  getDuration(): number {
-    return this.audioElement.duration;
-  }
-
-  cleanup() {
-    this.audioElement.pause();
-    URL.revokeObjectURL(this.audioElement.src);
-    this.audioContext?.close();
-  }
-}
-```
-
-### Pattern 2: Direct DOM Manipulation for High-Frequency Updates
-
-**What:** Bypass React's render cycle for high-frequency updates like transcript highlighting during audio playback. Use refs to manipulate DOM directly in `timeupdate` event handlers.
-
-**When to use:** When dealing with events that fire frequently (4-66Hz) where React state updates would cause performance issues.
-
-**Trade-offs:**
-- Pros: 60fps performance (<1ms per update), no re-render overhead
-- Cons: Breaks React's declarative model, requires manual DOM management, harder to test
-
-**Example:**
-```typescript
-// TranscriptView.tsx
-const TranscriptView: React.FC<Props> = ({ transcript, audioRef }) => {
-  const wordsRef = useRef<Map<number, HTMLSpanElement>>(new Map());
-  const currentTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    // High-frequency update - bypass React state
-    const handleTimeUpdate = () => {
-      const currentTime = audio.currentTime;
-      currentTimeRef.current = currentTime;
-
-      // Find active word and highlight directly
-      const activeWord = findWordAtTime(transcript, currentTime);
-
-      // Remove previous highlight
-      const prevElement = wordsRef.current.get(activeWord.id - 1);
-      if (prevElement) {
-        prevElement.style.backgroundColor = 'transparent';
-      }
-
-      // Add new highlight
-      const element = wordsRef.current.get(activeWord.id);
-      if (element) {
-        element.style.backgroundColor = 'yellow';
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    return () => audio.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [transcript, audioRef]);
-
-  return (
-    <div>
-      {transcript.words.map(word => (
-        <span
-          key={word.id}
-          ref={el => el && wordsRef.current.set(word.id, el)}
-          onClick={() => audioRef.current.currentTime = word.startTime}
-        >
-          {word.text}
-        </span>
-      ))}
-    </div>
-  );
-};
-```
-
-### Pattern 3: Async State Machine for Transcription Jobs
-
-**What:** Model transcription as a state machine with explicit states (IDLE, UPLOADING, QUEUED, PROCESSING, COMPLETED, ERROR). Use polling or webhooks to track progress.
-
-**When to use:** When integrating with external async APIs that process files in the background. Essential for providing user feedback during long-running operations.
-
-**Trade-offs:**
-- Pros: Clear state transitions, easy to reason about, handles errors gracefully, provides progress feedback
-- Cons: More complex than simple async/await, requires polling infrastructure or webhook setup
-
-**Example:**
-```typescript
-// useTranscriptionJob.ts
-type JobState =
-  | { status: 'IDLE' }
-  | { status: 'UPLOADING'; progress: number }
-  | { status: 'QUEUED'; jobId: string }
-  | { status: 'PROCESSING'; jobId: string; progress?: number }
-  | { status: 'COMPLETED'; transcript: Transcript }
-  | { status: 'ERROR'; error: string };
-
-export function useTranscriptionJob() {
-  const [state, setState] = useState<JobState>({ status: 'IDLE' });
-
-  const startTranscription = async (audioFile: File) => {
-    try {
-      setState({ status: 'UPLOADING', progress: 0 });
-
-      // Upload file
-      const jobId = await uploadAudioFile(audioFile, (progress) => {
-        setState({ status: 'UPLOADING', progress });
-      });
-
-      setState({ status: 'QUEUED', jobId });
-
-      // Poll for completion
-      const result = await pollForCompletion(jobId, (progress) => {
-        setState({ status: 'PROCESSING', jobId, progress });
-      });
-
-      setState({ status: 'COMPLETED', transcript: result });
-    } catch (error) {
-      setState({ status: 'ERROR', error: error.message });
-    }
-  };
-
-  return { state, startTranscription };
-}
-
-async function pollForCompletion(jobId: string, onProgress: (p: number) => void) {
-  while (true) {
-    const status = await checkJobStatus(jobId);
-
-    if (status.state === 'completed') {
-      return status.transcript;
-    }
-
-    if (status.state === 'failed') {
-      throw new Error(status.error);
-    }
-
-    if (status.progress) {
-      onProgress(status.progress);
-    }
-
-    await sleep(2000); // Poll every 2 seconds
-  }
-}
-```
-
-### Pattern 4: Branded Types for Time Units
-
-**What:** Use TypeScript branded types to distinguish between different time units (seconds, milliseconds, sample positions) at the type level.
-
-**When to use:** Always when dealing with time-based calculations in audio applications. Prevents unit-mismatch bugs that are common when mixing time representations.
-
-**Trade-offs:**
-- Pros: Type-safe time conversions, catches bugs at compile time, self-documenting code
-- Cons: Slightly more verbose, requires conversion functions
-
-**Example:**
-```typescript
-// types/time.types.ts
-export type Seconds = number & { readonly __brand: 'Seconds' };
-export type Milliseconds = number & { readonly __brand: 'Milliseconds' };
-
-export const asSeconds = (n: number): Seconds => n as Seconds;
-export const asMilliseconds = (n: number): Milliseconds => n as Milliseconds;
-
-export const secondsToMs = (s: Seconds): Milliseconds =>
-  asMilliseconds(s * 1000);
-
-export const msToSeconds = (ms: Milliseconds): Seconds =>
-  asSeconds(ms / 1000);
-
-// Usage
-interface CutPoint {
-  startTime: Seconds;
-  endTime: Seconds;
-}
-
-function seekToTime(time: Seconds) {
-  audioElement.currentTime = time; // Type-safe: audioElement.currentTime expects number
-}
-
-// This will fail at compile time:
-// seekToTime(asMilliseconds(1000)); // Error: Argument of type 'Milliseconds' not assignable to 'Seconds'
-
-// Correct usage:
-seekToTime(msToSeconds(asMilliseconds(1000))); // OK
-```
-
-## Data Flow
-
-### Request Flow
+### Complete Processing Flow
 
 ```
-[User Uploads File]
+[User clicks "Process Audio"]
     ↓
-[Upload Component] → [File Validation] → [Audio Service] → [Memory/URL.createObjectURL]
-    ↓                                              ↓
-[User Clicks "Transcribe"]              [Audio Element Ready]
-    ↓                                              ↓
-[Transcription Service] → [API Upload] → [Poll Job Status]
-    ↓                                              ↓
-[Update State: PROCESSING]                  [Player Component]
-    ↓                                              ↓
-[Job Complete] → [Parse Transcript] → [Transcript Store]
-                                                   ↓
-                                        [Transcript Component]
+[ProcessingController.onProcessClick()]
+    ↓ (1. Get audio file)
+[AudioService.getOriginalFile()] ────────────┐
+    ↓                                        │
+[ProcessingController]                       │
+    ↓ (2. Get cut list)                     │
+[CutController.getCutRegions()] ─────────┐  │
+    ↓                                     │  │
+[ProcessingController]                    │  │
+    ↓ (3. Orchestrate processing)         │  │
+[ProcessingService.processAudio(file, cuts)] │
+    ↓                                     │  │
+[FFmpeg.wasm Processing Pipeline]         │  │
+    │                                     │  │
+    ├─ (3a) Load FFmpeg.wasm             │  │
+    │   await ffmpeg.load()               │  │
+    │                                     │  │
+    ├─ (3b) Write input to virtual FS    │  │
+    │   await ffmpeg.writeFile()    ◄────┴──┘
+    │                                     │
+    ├─ (3c) Generate filter_complex ◄────┘
+    │   buildFilterCommand(cuts)
+    │
+    ├─ (3d) Execute FFmpeg
+    │   await ffmpeg.exec([...])
+    │   [progress callbacks fire]
+    │
+    ├─ (3e) Read output
+    │   await ffmpeg.readFile()
+    │
+    └─ (3f) Cleanup
+        ffmpeg.terminate()
+    ↓
+[ProcessingService returns Blob]
+    ↓
+[ProcessingController receives Blob]
+    ↓ (4. Download processed file)
+[ExportService.downloadAudio(blob, filename)]
+    ↓
+[Browser downloads edited audio file]
 ```
 
-### State Management Flow
+## FFmpeg.wasm Integration Patterns
+
+### Pattern 1: Service Initialization (Lazy Loading)
+
+**What:** Load FFmpeg.wasm only when needed (on-demand), not at application startup.
+
+**Why:** FFmpeg WASM core is ~31MB (single-thread) or ~32MB (multi-thread). Loading on startup delays initial page load unnecessarily.
+
+**Implementation:**
+```javascript
+class ProcessingService {
+  constructor() {
+    this.ffmpeg = null;
+    this.isLoaded = false;
+  }
+
+  async ensureLoaded() {
+    if (this.isLoaded) return;
+
+    this.ffmpeg = new FFmpeg();
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+
+    await this.ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    this.isLoaded = true;
+  }
+}
+```
+
+**Trade-offs:**
+- Pro: Faster initial load for users who only want transcription
+- Pro: Memory efficient until processing needed
+- Con: User waits for FFmpeg download when clicking "Process Audio"
+- Con: Need to handle loading state in UI
+
+### Pattern 2: Virtual File System Management
+
+**What:** FFmpeg.wasm uses an in-memory virtual filesystem. Write files in, execute commands, read files out.
+
+**Why:** WASM has no native access to browser File objects. Must copy data into virtual FS.
+
+**Implementation:**
+```javascript
+async processAudio(audioFile, cutRegions) {
+  await this.ensureLoaded();
+
+  // Write input file to virtual FS
+  const inputName = 'input.mp3'; // Use generic name
+  await this.ffmpeg.writeFile(inputName, await fetchFile(audioFile));
+
+  // Execute command (operates on virtual FS paths)
+  const filterCmd = this.buildFilterCommand(cutRegions);
+  await this.ffmpeg.exec(['-i', inputName, ...filterCmd, 'output.mp3']);
+
+  // Read output from virtual FS
+  const data = await this.ffmpeg.readFile('output.mp3');
+
+  // Cleanup virtual FS
+  await this.ffmpeg.deleteFile(inputName);
+  await this.ffmpeg.deleteFile('output.mp3');
+
+  return new Blob([data.buffer], { type: 'audio/mpeg' });
+}
+```
+
+**Trade-offs:**
+- Pro: Isolated filesystem prevents conflicts
+- Pro: Automatic cleanup prevents memory leaks
+- Con: Entire file loaded into memory (limits size)
+- Con: File copy overhead (time and memory)
+
+### Pattern 3: Filter Complex Command Construction
+
+**What:** Build FFmpeg filter_complex commands to remove cut regions by concatenating kept segments.
+
+**Why:** Can't directly "delete" regions from audio. Must extract kept segments and concatenate them.
+
+**Approach:** For each cut region, generate `atrim` + `asetpts` filters to extract kept segments, then `concat` to join them.
+
+**Implementation:**
+```javascript
+buildFilterCommand(cutRegions) {
+  // Sort cuts by start time
+  const sorted = [...cutRegions].sort((a, b) => a.startTime - b.startTime);
+
+  // Build array of KEPT segments (inverse of cuts)
+  const keepSegments = [];
+  let currentTime = 0;
+
+  for (const cut of sorted) {
+    if (currentTime < cut.startTime) {
+      keepSegments.push({ start: currentTime, end: cut.startTime });
+    }
+    currentTime = cut.endTime;
+  }
+
+  // Add final segment after last cut (if any)
+  // Note: Need audio duration - get from AudioService
+  const duration = this.audioDuration; // Must be injected
+  if (currentTime < duration) {
+    keepSegments.push({ start: currentTime, end: duration });
+  }
+
+  // Build filter_complex command
+  // Example: [0:a]atrim=0:10,asetpts=PTS-STARTPTS[a0];
+  //          [0:a]atrim=15:30,asetpts=PTS-STARTPTS[a1];
+  //          [a0][a1]concat=v=0:a=1[out]
+
+  if (keepSegments.length === 0) {
+    throw new Error('No audio would remain after cuts');
+  }
+
+  if (keepSegments.length === 1) {
+    // Single segment - simple trim
+    const seg = keepSegments[0];
+    return [
+      '-af',
+      `atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS`
+    ];
+  }
+
+  // Multiple segments - need concat
+  const filters = [];
+  const labels = [];
+
+  keepSegments.forEach((seg, i) => {
+    const label = `a${i}`;
+    filters.push(`[0:a]atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS[${label}]`);
+    labels.push(`[${label}]`);
+  });
+
+  // Concat all segments
+  filters.push(`${labels.join('')}concat=v=0:a=${keepSegments.length}[out]`);
+
+  return [
+    '-filter_complex',
+    filters.join(';'),
+    '-map', '[out]'
+  ];
+}
+```
+
+**Trade-offs:**
+- Pro: Precise timestamp control
+- Pro: Maintains audio quality (no re-encoding if using -c copy, but filter requires re-encode)
+- Con: Complex command construction
+- Con: Requires audio duration from AudioService
+
+### Pattern 4: Progress Callbacks
+
+**What:** FFmpeg.wasm fires progress events during processing. Wire to UI progress bar.
+
+**Why:** Long files (45-90 min podcasts) may take minutes to process. User needs feedback.
+
+**Limitations:** Progress events are experimental and may not fire for all operations. Progress ratio is only accurate when input/output durations match (which they won't for cuts).
+
+**Implementation:**
+```javascript
+class ProcessingService {
+  async processAudio(audioFile, cutRegions, onProgress) {
+    await this.ensureLoaded();
+
+    // Register progress callback
+    this.ffmpeg.on('progress', ({ progress, time }) => {
+      // progress is 0-1 ratio (unreliable for cuts)
+      // time is current processing timestamp in microseconds
+      if (onProgress) {
+        // Convert time to seconds
+        const seconds = time / 1000000;
+        onProgress({ seconds, progress });
+      }
+    });
+
+    // ... processing ...
+
+    // Cleanup callback
+    this.ffmpeg.off('progress');
+  }
+}
+```
+
+**Alternative approach:** Log callback for more reliable feedback
+```javascript
+this.ffmpeg.on('log', ({ message }) => {
+  // Parse FFmpeg output for "time=" to extract progress
+  // Example: "frame= 1234 fps=56 time=00:01:23.45"
+  const match = message.match(/time=(\d{2}):(\d{2}):(\d{2})/);
+  if (match && onProgress) {
+    const [_, hours, mins, secs] = match;
+    const totalSeconds = parseInt(hours) * 3600 +
+                         parseInt(mins) * 60 +
+                         parseInt(secs);
+    onProgress({ seconds: totalSeconds });
+  }
+});
+```
+
+**Trade-offs:**
+- Pro: User sees progress during long operations
+- Con: Progress events are experimental and unreliable
+- Con: Log parsing is fragile and FFmpeg-version dependent
+
+### Pattern 5: Memory Management & Cleanup
+
+**What:** FFmpeg.wasm loads entire files into WASM memory. Must cleanup aggressively to prevent crashes.
+
+**Why:** Browsers limit WASM memory (typically 2-4GB). 90-minute podcasts can be 100-200MB uncompressed.
+
+**Critical cleanup points:**
+1. After readFile (delete virtual FS files)
+2. After processing complete (terminate FFmpeg instance)
+3. On error (cleanup in finally block)
+
+**Implementation:**
+```javascript
+class ProcessingService {
+  async processAudio(audioFile, cutRegions, onProgress) {
+    try {
+      await this.ensureLoaded();
+
+      const inputName = 'input.mp3';
+      await this.ffmpeg.writeFile(inputName, await fetchFile(audioFile));
+
+      // ... processing ...
+
+      const data = await this.ffmpeg.readFile('output.mp3');
+
+      // Immediate cleanup of virtual FS
+      await this.ffmpeg.deleteFile(inputName);
+      await this.ffmpeg.deleteFile('output.mp3');
+
+      return new Blob([data.buffer], { type: this.getOutputMimeType(audioFile) });
+
+    } catch (error) {
+      console.error('Processing failed:', error);
+      throw new Error(`Audio processing failed: ${error.message}`);
+
+    } finally {
+      // Always terminate FFmpeg instance to free memory
+      if (this.ffmpeg) {
+        this.ffmpeg.terminate();
+        this.isLoaded = false;
+        this.ffmpeg = null;
+      }
+    }
+  }
+}
+```
+
+**Trade-offs:**
+- Pro: Prevents memory leaks
+- Pro: Allows multiple processing operations in one session
+- Con: Must reload FFmpeg for next operation (adds ~2-3s overhead)
+- Con: Aggressive cleanup means losing state
+
+**Alternative: Reuse instance**
+For batch processing (multiple files), don't terminate between operations:
+```javascript
+// Keep instance alive, only cleanup files
+await this.ffmpeg.deleteFile(inputName);
+await this.ffmpeg.deleteFile('output.mp3');
+```
+
+But for PodEdit's one-file workflow, aggressive cleanup is safer.
+
+## Integration Points with Existing Services
+
+### 1. AudioService → ProcessingService
+
+**What ProcessingService needs:** Original audio File object
+
+**Current state:** AudioService only exposes HTML5 Audio element, not original File
+
+**Required change:** AudioService must store and expose the original File object
+
+**Implementation:**
+```javascript
+// audioService.js modification
+class AudioService {
+  constructor() {
+    this.audio = new Audio();
+    this.originalFile = null; // NEW
+  }
+
+  async loadFile(file) {
+    this.originalFile = file; // NEW - store reference
+
+    const url = URL.createObjectURL(file);
+    this.audio.src = url;
+    // ... rest of existing code
+  }
+
+  getOriginalFile() {  // NEW method
+    return this.originalFile;
+  }
+}
+```
+
+### 2. CutController → ProcessingService
+
+**What ProcessingService needs:** Array of cut regions with start/end times
+
+**Current state:** CutController already provides `getCutRegions()` returning CutRegion[]
+
+**Required change:** None - interface already exists
+
+**Usage:**
+```javascript
+// processingController.js
+const cuts = this.cutController.getCutRegions();
+const processedBlob = await this.processingService.processAudio(
+  this.audioService.getOriginalFile(),
+  cuts,
+  (progress) => this.updateProgressBar(progress)
+);
+```
+
+### 3. ProcessingService → ExportService
+
+**What ExportService needs:** Processed audio Blob and filename
+
+**Current state:** ExportService only handles JSON downloads
+
+**Required change:** Add downloadAudio() method
+
+**Implementation:**
+```javascript
+// exportService.js extension
+class ExportService {
+  // ... existing downloadJson method ...
+
+  /**
+   * Download audio blob as a file
+   * @param {Blob} audioBlob - Processed audio data
+   * @param {string} originalFilename - Original audio filename
+   */
+  downloadAudio(audioBlob, originalFilename) {
+    // Derive output filename: "podcast.mp3" -> "podcast-edited.mp3"
+    const baseName = originalFilename.replace(/\.[^.]+$/, '');
+    const extension = originalFilename.match(/\.[^.]+$/)?.[0] || '.mp3';
+    const outputFilename = `${baseName}-edited${extension}`;
+
+    // Create object URL and trigger download
+    const url = URL.createObjectURL(audioBlob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = outputFilename;
+    anchor.style.display = 'none';
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    // Revoke URL after download to prevent memory leak
+    URL.revokeObjectURL(url);
+  }
+}
+```
+
+### 4. AudioService Duration → ProcessingService
+
+**What ProcessingService needs:** Total audio duration to calculate final segment
+
+**Current state:** AudioService has getDuration() method
+
+**Required change:** None, but ProcessingService must call it
+
+**Usage:**
+```javascript
+// processingService.js
+buildFilterCommand(cutRegions) {
+  // Need duration to calculate final kept segment
+  // This must be passed in from controller
+  const duration = this.audioDuration;
+  // ... rest of command building
+}
+```
+
+**Better pattern:** Inject duration when processing starts
+```javascript
+async processAudio(audioFile, cutRegions, duration, onProgress) {
+  this.audioDuration = duration; // Store for buildFilterCommand
+  // ...
+}
+```
+
+## Component Dependency Graph
 
 ```
-┌─────────────────────────────────────────────────┐
-│              Application State                   │
-├─────────────────────────────────────────────────┤
-│                                                  │
-│  Audio State                                     │
-│  ├─ file: File | null                           │
-│  ├─ duration: Seconds                           │
-│  ├─ isPlaying: boolean                          │
-│  └─ currentTime: Seconds (ref, not state)       │
-│                                                  │
-│  Transcript State                                │
-│  ├─ jobId: string | null                        │
-│  ├─ status: JobState                            │
-│  ├─ transcript: Transcript | null               │
-│  └─ error: string | null                        │
-│                                                  │
-│  Cut Points State                                │
-│  ├─ points: CutPoint[]                          │
-│  ├─ selectedIndex: number | null                │
-│  └─ isDirty: boolean                            │
-│                                                  │
-└─────────────────────────────────────────────────┘
-         ↓ (subscribe)                      ↑
-    [Components] ←────────────→ [Actions/Mutations]
+ProcessingController (NEW)
+    │
+    ├─→ AudioService.getOriginalFile()
+    ├─→ AudioService.getDuration()
+    ├─→ CutController.getCutRegions()
+    ├─→ ProcessingService.processAudio() (NEW)
+    └─→ ExportService.downloadAudio() (NEW)
+
+ProcessingService (NEW)
+    │
+    ├─→ FFmpeg.wasm (external library)
+    ├─→ @ffmpeg/util.fetchFile() (external library)
+    └─→ @ffmpeg/util.toBlobURL() (external library)
+
+AudioService (MODIFIED)
+    + getOriginalFile() method
+    + originalFile storage
+
+ExportService (MODIFIED)
+    + downloadAudio() method
 ```
 
-### Key Data Flows
+## Suggested Build Order
 
-1. **Audio Upload Flow:** User selects file → Validate format → Create object URL → Load into audio element → Store file reference in state → Enable player controls
+Based on dependencies and risk, build in this order:
 
-2. **Transcription Flow:** User clicks transcribe → Upload to API → Receive job ID → Poll status every 2s → Update progress → Receive transcript → Parse and store → Display in transcript view
+### Phase 1: Service Foundation (Low Risk)
+1. **Add ProcessingService skeleton** - Class structure, no FFmpeg yet
+   - Constructor
+   - processAudio() stub that returns dummy Blob
+   - buildFilterCommand() stub
+2. **Extend AudioService** - Add getOriginalFile() method
+3. **Extend ExportService** - Add downloadAudio() method
+4. **Test service integration** - Wire services together without FFmpeg
 
-3. **Timestamp Navigation Flow:** User clicks transcript word → Extract timestamp → Call audio.seek(timestamp) → Audio jumps to position → Resume playback if was playing
+### Phase 2: FFmpeg Integration (Medium Risk)
+5. **Add FFmpeg.wasm library** - Install @ffmpeg/ffmpeg and @ffmpeg/util
+6. **Implement FFmpeg loading** - ensureLoaded() method
+7. **Implement basic processing** - Write file, exec simple command, read output
+8. **Test with simple audio file** - No cuts, just load and re-encode
 
-4. **Cut Point Marking Flow:** User clicks "Mark Start" → Capture currentTime → Store as pending cut point → User clicks "Mark End" → Complete cut point pair → Add to cut points array → Display in editor
+### Phase 3: Cut Logic (High Risk - Complex)
+9. **Implement buildFilterCommand()** - Single cut first
+10. **Test single cut removal** - Verify timestamps correct
+11. **Extend to multiple cuts** - Array of cuts with concat
+12. **Test edge cases** - No cuts, all cuts, overlapping cuts
 
-5. **JSON Export Flow:** User clicks export → Gather state (file metadata, cut points, transcript) → Serialize to JSON → Create Blob → Generate download URL → Trigger browser download → Revoke URL
+### Phase 4: UI & Polish (Low Risk)
+13. **Add ProcessingController** - Button to trigger processing
+14. **Add progress bar** - Wire progress callbacks to UI
+15. **Add error handling** - Display errors to user
+16. **Add file size warnings** - Warn for files >100MB
 
-## Scaling Considerations
+### Phase 5: Memory Management (Medium Risk)
+17. **Add cleanup on success** - Delete files, terminate instance
+18. **Add cleanup on error** - Finally blocks
+19. **Test memory usage** - Multiple process operations in one session
+20. **Add SharedArrayBuffer detection** - Warn if browser doesn't support
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| Single user, local dev | Current architecture is perfect. Single-page app, all client-side, no backend needed. |
-| 10-100 users | Add optional IndexedDB caching for transcripts to avoid re-transcribing. Consider backend for API key management if using paid transcription services. |
-| 100+ concurrent users | Add backend service to handle transcription API calls (avoid exposing API keys). Implement rate limiting. Consider adding user accounts and cloud storage. |
+## Memory Lifecycle
 
-### Scaling Priorities
+```
+[User uploads audio file]
+    │
+    ├─→ AudioService stores File reference (~100MB MP3)
+    │   [Memory: ~100MB for File object]
+    │
+[User clicks "Process Audio"]
+    │
+    ├─→ ProcessingService.ensureLoaded()
+    │   ├─ Download FFmpeg WASM (~31MB)
+    │   ├─- Initialize FFmpeg instance
+    │   [Memory: +31MB for WASM + overhead]
+    │
+    ├─→ ffmpeg.writeFile(input)
+    │   ├─ Copy File to virtual FS
+    │   [Memory: +100MB copy in WASM memory]
+    │
+    ├─→ ffmpeg.exec(filter_complex)
+    │   ├─ Decode audio to PCM
+    │   ├─ Process segments
+    │   ├─ Encode output
+    │   [Memory: Peak ~300-400MB during processing]
+    │   [         - Input: 100MB]
+    │   [         - Decoded PCM: ~200MB for 90min]
+    │   [         - Output buffer: ~100MB]
+    │
+    ├─→ ffmpeg.readFile(output)
+    │   ├─ Copy output to JavaScript
+    │   [Memory: +100MB for output Blob]
+    │
+    ├─→ Cleanup: deleteFile(input, output)
+    │   [Memory: -200MB (virtual FS files cleared)]
+    │
+    └─→ Cleanup: ffmpeg.terminate()
+        [Memory: -31MB (WASM freed)]
 
-1. **First bottleneck:** Transcription API rate limits and costs. Mitigate by caching completed transcripts in IndexedDB, implementing retry logic with exponential backoff, and showing clear progress indicators to manage user expectations.
+[User downloads audio]
+    │
+    └─→ ExportService.downloadAudio(blob)
+        ├─ Create object URL (reference, no copy)
+        ├─ Trigger download
+        └─ Revoke URL
+        [Memory: Original ~100MB input still in AudioService]
+        [Memory: ~100MB output Blob until download complete]
+```
 
-2. **Second bottleneck:** Large audio file handling (>100MB). Browsers can handle this with proper streaming, but consider chunking uploads for files over 100MB. Use IndexedDB for temporary storage rather than keeping large files in memory.
+**Peak memory usage:** ~500-600MB
+- Original file in AudioService: 100MB
+- FFmpeg WASM: 31MB
+- Virtual FS copy: 100MB
+- Decoded PCM: 200MB
+- Output Blob: 100MB
 
-3. **Third bottleneck:** Multiple simultaneous transcription jobs. Implement a job queue system with priority levels. Show queue position to users. Consider adding "save for later" functionality so users can close the app while jobs process.
+**After cleanup:** ~200MB
+- Original file: 100MB (kept for replay)
+- Output Blob: 100MB (until download complete, then GC'd)
+
+## Browser Compatibility Requirements
+
+FFmpeg.wasm requires:
+- **WebAssembly support** - Chrome 57+, Firefox 52+, Safari 11+, Edge 79+ (95%+ coverage)
+- **SharedArrayBuffer** - Chrome 89+, Firefox 79+, Safari 15.2+, Edge 89+ (95%+ coverage as of 2024)
+- **Cross-Origin Isolation** - Requires headers:
+  - `Cross-Origin-Embedder-Policy: require-corp`
+  - `Cross-Origin-Opener-Policy: same-origin`
+
+**For localhost development:** These headers are automatically provided by most dev servers.
+
+**Detection pattern:**
+```javascript
+function supportsFFmpeg() {
+  if (typeof WebAssembly === 'undefined') {
+    return { supported: false, reason: 'WebAssembly not supported' };
+  }
+
+  if (typeof SharedArrayBuffer === 'undefined') {
+    return {
+      supported: false,
+      reason: 'SharedArrayBuffer not available (cross-origin isolation required)'
+    };
+  }
+
+  return { supported: true };
+}
+```
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Storing currentTime in React State
+### Anti-Pattern 1: Loading FFmpeg on Startup
 
-**What people do:** Listen to `timeupdate` events and update React state with `currentTime`, then use that state to determine which transcript words to highlight.
+**What people do:** Load FFmpeg.wasm in application initialization
+**Why it's wrong:** Delays initial page load by 2-3 seconds for all users, even those who only want transcription
+**Do this instead:** Lazy load FFmpeg when user clicks "Process Audio" button
 
-**Why it's wrong:** The `timeupdate` event fires 4-66 times per second. Each state update triggers a React re-render, causing performance issues. Testing shows >400ms per event on throttled devices vs <1ms with direct DOM manipulation.
+### Anti-Pattern 2: Forgetting Virtual FS Cleanup
 
-**Do this instead:** Store `currentTime` in a ref and manipulate the DOM directly in the `timeupdate` handler. Only use React state for infrequent updates (play/pause, duration, loaded state).
+**What people do:** Read output file and return, leaving files in virtual FS
+**Why it's wrong:** Memory leak - virtual FS files persist in WASM memory until explicitly deleted
+**Do this instead:** Always delete virtual FS files after reading, use try/finally blocks
 
-```typescript
-// BAD - causes 60 re-renders per second
-const [currentTime, setCurrentTime] = useState(0);
-audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
+### Anti-Pattern 3: Building Filter Commands with String Concatenation
 
-// GOOD - bypasses React render cycle
-const currentTimeRef = useRef(0);
-audio.addEventListener('timeupdate', () => {
-  currentTimeRef.current = audio.currentTime;
-  updateTranscriptHighlight(audio.currentTime); // Direct DOM manipulation
-});
-```
+**What people do:** Build `-filter_complex` string by concatenating parts
+**Why it's wrong:** Easy to introduce syntax errors, hard to debug, shell escaping issues
+**Do this instead:** Build filter as array of parts, join with semicolons, pass as single argument
 
-### Anti-Pattern 2: Using AudioBufferSourceNode for Seeking
+### Anti-Pattern 4: Using -c copy with filter_complex
 
-**What people do:** Load entire audio file into an AudioBuffer and use AudioBufferSourceNode for playback, implementing custom seek logic by stopping and restarting the source at different offsets.
+**What people do:** Try to use `-c copy` (stream copy) with `-filter_complex`
+**Why it's wrong:** Filters require decoding/encoding - stream copy skips that, command fails
+**Do this instead:** Let FFmpeg choose encoder, or explicitly specify `-c:a libmp3lame` for MP3
 
-**Why it's wrong:** AudioBufferSourceNode is designed for short samples, not full-length tracks. It requires loading the entire file into memory and lacks native seek support. You must manually implement complex seek logic.
+### Anti-Pattern 5: Assuming Progress Events Are Accurate
 
-**Do this instead:** Use the HTML5 `<audio>` element which has built-in streaming and native seek support via `currentTime` property. This is explicitly recommended by MDN for full-length track playback.
-
-```typescript
-// BAD - complex, memory-intensive, no native seeking
-const buffer = await audioContext.decodeAudioData(arrayBuffer);
-const source = audioContext.createBufferSource();
-source.buffer = buffer;
-source.connect(audioContext.destination);
-source.start(0, seekOffset); // Must recreate source for each seek
-
-// GOOD - simple, streaming, native seek
-const audio = new Audio();
-audio.src = URL.createObjectURL(file);
-audio.currentTime = seekOffset; // Native seeking
-audio.play();
-```
-
-### Anti-Pattern 3: Not Cleaning Up Audio Resources
-
-**What people do:** Create Audio elements and object URLs without cleanup, especially in React components that mount/unmount.
-
-**Why it's wrong:** Memory leaks accumulate as users interact with the app. Object URLs remain in memory until explicitly revoked. Audio elements continue consuming resources. Event listeners prevent garbage collection.
-
-**Do this instead:** Always clean up in useEffect cleanup functions. Revoke object URLs with `URL.revokeObjectURL()`. Remove event listeners. Pause and nullify audio elements.
-
-```typescript
-// BAD - memory leaks
-useEffect(() => {
-  const audio = new Audio(URL.createObjectURL(file));
-  audio.play();
-}, [file]);
-
-// GOOD - proper cleanup
-useEffect(() => {
-  const url = URL.createObjectURL(file);
-  const audio = new Audio(url);
-  audio.play();
-
-  return () => {
-    audio.pause();
-    audio.src = '';
-    URL.revokeObjectURL(url);
-  };
-}, [file]);
-```
-
-### Anti-Pattern 4: Polling Without Exponential Backoff
-
-**What people do:** Poll transcription API at fixed intervals (e.g., every 1 second) regardless of job duration or API load.
-
-**Why it's wrong:** Wastes API quota, increases costs, can hit rate limits, and provides no benefit since most jobs take minutes. Constant polling of a "processing" status doesn't make the job complete faster.
-
-**Do this instead:** Use exponential backoff starting with short intervals (1s) for initial feedback, then gradually increasing (2s, 4s, 8s, max 30s) for long-running jobs. Stop polling on completion or error.
-
-```typescript
-// BAD - fixed interval polling
-const pollJob = async (jobId: string) => {
-  while (true) {
-    const status = await checkStatus(jobId);
-    if (status.complete) return status;
-    await sleep(1000); // Always 1 second
-  }
-};
-
-// GOOD - exponential backoff
-const pollJob = async (jobId: string) => {
-  let delay = 1000;
-  const maxDelay = 30000;
-
-  while (true) {
-    const status = await checkStatus(jobId);
-    if (status.complete) return status;
-    if (status.error) throw new Error(status.error);
-
-    await sleep(delay);
-    delay = Math.min(delay * 1.5, maxDelay); // Exponential backoff
-  }
-};
-```
-
-### Anti-Pattern 5: Auto-playing Audio Without User Gesture
-
-**What people do:** Attempt to auto-play audio on page load or after transcription completes without user interaction.
-
-**Why it's wrong:** Browsers block auto-play by default. The AudioContext will be suspended, requiring explicit `resume()` from a user gesture. This creates a broken experience where audio appears not to work.
-
-**Do this instead:** Always check AudioContext state and require a user interaction (button click) to start playback. Show clear UI indicating audio is ready and needs user action.
-
-```typescript
-// BAD - will fail due to autoplay policy
-const audio = new Audio(url);
-audio.play(); // DOMException: play() failed
-
-// GOOD - wait for user gesture
-const audio = new Audio(url);
-const playButton = document.querySelector('button');
-
-playButton.addEventListener('click', async () => {
-  try {
-    await audio.play();
-  } catch (error) {
-    console.error('Playback failed:', error);
-  }
-});
-```
-
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Transcription API | REST API with async job polling | POST file → receive job ID → poll GET /status → retrieve transcript. Implement exponential backoff. Most APIs (AssemblyAI, Gladia, Rev.ai) follow this pattern. |
-| Web Audio API | HTML5 audio element + optional AudioContext | Use `<audio>` as source, optionally pipe through Web Audio API for processing. Check autoplay policy before playback. |
-| IndexedDB | Optional caching layer | Cache completed transcripts to avoid re-processing. Store as Blob + metadata. Check storage quota before writing. |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Components ↔ Services | Custom hooks as adapters | Hooks wrap services and expose React-friendly APIs. Services remain framework-agnostic for easier testing. |
-| Services ↔ Storage | Direct async calls | Services own storage logic. Use async/await pattern. Handle QuotaExceededError gracefully. |
-| Player ↔ Transcript | Ref + direct DOM access | Player exposes audio ref. Transcript subscribes to timeupdate via ref. Avoids state updates for performance. |
-| Editor ↔ State | Zustand/Context actions | Editor dispatches actions. State updates trigger re-renders only for affected components. |
-
-## Build Order and Dependencies
-
-For the initial milestone (v1.0), recommended build order:
-
-### Phase 1: Core Infrastructure (No dependencies)
-1. Project setup (TypeScript, React, Vite)
-2. Type definitions (audio, transcript, cut points)
-3. Utility functions (time formatting, file validation)
-
-### Phase 2: Audio Foundation (Depends on Phase 1)
-4. Audio Service implementation
-5. Upload Component (file selection, validation)
-6. Basic Player Component (play/pause, seek)
-
-### Phase 3: Transcription (Depends on Phase 2 - need audio to transcribe)
-7. Transcription Service (API integration)
-8. Job state management (polling, progress)
-9. Transcript data model
-
-### Phase 4: Transcript Display (Depends on Phase 2 & 3 - need audio + transcript)
-10. Transcript View Component
-11. Timestamp-based highlighting
-12. Click-to-seek navigation
-
-### Phase 5: Editing Features (Depends on Phase 2 & 4 - need player + transcript)
-13. Cut Point Editor Component
-14. Cut point state management
-15. Keyboard shortcuts for marking
-
-### Phase 6: Export (Depends on all previous - final integration)
-16. Export Service
-17. JSON serialization
-18. Browser download triggering
-
-### Rationale
-
-- **Audio first:** Core playback must work before transcription, since transcription produces timestamps that reference the audio timeline
-- **Transcription before display:** Need transcript data structure defined before building display components
-- **Display before editing:** Users need to see and navigate transcript before marking cut points makes sense
-- **Export last:** Requires all data (audio metadata, transcript, cut points) to be present and working
+**What people do:** Use progress events to show exact percentage completion
+**Why it's wrong:** Progress events are experimental, ratios are inaccurate when output duration differs from input
+**Do this instead:** Show indeterminate progress spinner, or parse log output for time values (fragile)
 
 ## Sources
 
-### Official Documentation (HIGH confidence)
-- [Using the Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Using_Web_Audio_API)
-- [Web Audio API Best Practices - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices)
-- [Storage Quotas and Eviction - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)
+### Architecture & Integration
+- [FFmpeg.wasm GitHub Repository](https://github.com/ffmpegwasm/ffmpeg.wasm) - Official repository
+- [FFmpeg.wasm Overview Documentation](https://ffmpegwasm.netlify.app/docs/overview/) - Architecture overview
+- [FFmpeg.wasm API Reference](https://ffmpegwasm.netlify.app/docs/api/ffmpeg/classes/ffmpeg/) - API methods
+- [FFmpeg.wasm Usage Guide](https://ffmpegwasm.netlify.app/docs/getting-started/usage/) - Code examples
 
-### Practical Implementation Guides (MEDIUM confidence)
-- [Syncing a Transcript with Audio in React - Metaview](https://www.metaview.ai/resources/blog/syncing-a-transcript-with-audio-in-react)
-- [Building an Audio Player With React Hooks - LetsBuildUI](https://www.letsbuildui.dev/articles/building-an-audio-player-with-react-hooks/)
-- [IndexedDB Max Storage Limits - RxDB](https://rxdb.info/articles/indexeddb-max-storage-limit.html)
+### Memory Management
+- [Building Browser-Based Audio Tools with FFmpeg.wasm (2024)](https://soundtools.io/blog/building-browser-audio-tools-ffmpeg-wasm/) - Memory management patterns
+- [Moving FFmpeg to the Browser: How I Saved 100% on Server Costs](https://dev.to/baojian_yuan/moving-ffmpeg-to-the-browser-how-i-saved-100-on-server-costs-using-webassembly-4l9f) - Memory cleanup strategies
+- [Mastering FFMPEG WASM](https://harryosmarsitohang.com/articles/ffmpeg-wasm) - Performance considerations
 
-### Transcription API Patterns (MEDIUM confidence)
-- [The Ultimate 2026 Guide to Speech-to-Text APIs](https://aimlapi.com/blog/introduction-to-speech-to-text-technology)
-- [Async Transcription - Soniox Docs](https://soniox.com/docs/stt/async/async-transcription)
-- [Asynchronous Speech-to-Text API - Rev.ai](https://docs.rev.ai/api/asynchronous/)
+### Progress & Monitoring
+- [Progress event value · Issue #600](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/600) - Progress limitations
+- [FFmpeg WASM encoding progress](https://www.japj.net/2025/04/21/ffmpeg-wasm-encoding-progress/) - Alternative progress tracking (April 2025)
 
-### Architecture and Best Practices (MEDIUM confidence)
-- [The Complete Guide to Frontend Architecture Patterns in 2026](https://dev.to/sizan_mahmud0_e7c3fd0cb68/the-complete-guide-to-frontend-architecture-patterns-in-2026-3ioo)
-- [React TypeScript Project Structure Best Practices](https://medium.com/@tusharupadhyay691/effective-react-typescript-project-structure-best-practices-for-scalability-and-maintainability-bcbcf0e09bd5)
-- [Handling Memory Leaks in React](https://www.lucentinnovation.com/resources/technology-posts/handling-memory-leaks-in-react-for-optimal-performance)
-
-### Performance and Debugging (MEDIUM confidence)
-- [Web Audio API Performance Notes](https://padenot.github.io/web-audio-perf/)
-- [Visualizations with Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Visualizations_with_Web_Audio_API)
+### Audio Processing Techniques
+- [How to Cut Sections out of an MP4 File with FFmpeg](https://markheath.net/post/cut-and-concatenate-with-ffmpeg) - Cut and concat patterns
+- [Practical ffmpeg commands to manipulate a video](https://transang.me/practical-ffmpeg-commands-to-manipulate-a-video/) - Filter examples
+- [FFmpeg Filters Documentation](https://ffmpeg.org/ffmpeg-filters.html) - Official filter reference
 
 ---
-*Architecture research for: PodEdit - Audio/Transcript Web Application*
-*Researched: 2026-01-22*
+*Architecture research for: PodEdit V2.0 FFmpeg.wasm integration*
+*Researched: 2026-01-26*

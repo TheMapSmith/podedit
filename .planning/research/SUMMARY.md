@@ -1,270 +1,275 @@
 # Project Research Summary
 
-**Project:** PodEdit - Local web app for podcast audio editing with transcript navigation
-**Domain:** Audio/Transcript Web Application
-**Researched:** 2026-01-22
+**Project:** PodEdit v2.0 - Browser-Based Audio Processing
+**Domain:** Podcast editing web application with transcript navigation
+**Researched:** 2026-01-26
 **Confidence:** HIGH
 
 ## Executive Summary
 
-PodEdit is a local web application for podcast audio editing that uses transcript navigation as its core interface. Research shows this type of application is best built as a client-side single-page app with a thin backend for API key proxying. The recommended approach uses Wavesurfer.js for audio visualization, vanilla JavaScript (avoiding framework overhead), and Deepgram for transcription. The key architectural pattern is separating marking (what this tool does) from processing (external ffmpeg), making it simpler and more focused than full-featured competitors like Descript or Riverside.
+PodEdit v2.0 extends an existing browser-based podcast editor (v1.0) with in-browser audio processing capabilities using FFmpeg.wasm. V1.0 already handles audio playback, Whisper API transcription, transcript navigation, and cut point marking with JSON export. V2.0 adds the ability to apply those marked cuts directly in the browser and download the edited audio file, eliminating the need for external processing tools.
 
-The dominant risk is performance degradation with real podcast files (45-90 minutes). Most developers test with 3-5 minute samples and miss critical issues: VBR audio seek inaccuracy, memory crashes from decoding large files, and transcription API file size limits. The second major risk is state loss - users spending 30 minutes marking cuts and losing everything on a browser crash. Both risks are mitigated by architectural decisions in Phase 1 (streaming audio, not full decode) and Phase 2 (autosave to localStorage).
+The recommended approach uses FFmpeg.wasm with multi-threaded core (@ffmpeg/core-mt) for browser-based audio manipulation. This aligns with PodEdit's "local processing" philosophy while adding 3-6 minute processing times for typical 45-90 minute podcasts. The integration is architecturally clean: a single new ProcessingService wraps FFmpeg.wasm, a ProcessingController manages UI, and existing services (AudioService, ExportService) extend minimally. The existing vanilla JavaScript architecture requires no framework changes.
 
-Research confidence is HIGH across all areas. The stack is well-documented with clear recommendations, features align with established patterns from competitor analysis, architecture patterns are verified from MDN and production implementations, and pitfalls are documented from real bug reports and production incidents.
+The primary risks are memory exhaustion with large files (>100MB) and browser compatibility issues (iOS Safari, cross-origin isolation headers). Mitigation strategies include upfront file size validation, explicit memory cleanup patterns, and single-thread fallback for incompatible browsers. Seven critical pitfalls have been identified with clear prevention strategies, most addressable in Phase 1 (Foundation) through proper configuration and validation.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Modern web audio applications in this domain converge on a hybrid approach: HTML5 Audio element for playback (reliability and streaming), Web Audio API only when advanced processing is needed, and purpose-built libraries like Wavesurfer.js for domain-specific functionality.
+FFmpeg.wasm is the industry-standard solution for browser-based audio processing, providing full codec support and proven stability. The multi-threaded core (@ffmpeg/core-mt) provides 2x speedup over single-thread, reducing processing time from 6-12 minutes to 3-6 minutes for podcast-length files. The stack integrates cleanly with PodEdit's existing vanilla JavaScript architecture.
 
 **Core technologies:**
-- **Wavesurfer.js 7.12.1**: Audio playback with waveform visualization — purpose-built for audio+transcript UIs with Regions plugin for marking cut points and Timeline plugin for timestamps. v7 uses HTML5 Audio (not Web Audio API) preventing memory issues with large files.
-- **Vite + Vanilla JavaScript**: Development server and frontend logic — optimal for this scope. React/Vue add complexity without benefit for single-page audio editor. Modern ES modules are sufficient.
-- **Node.js 20.x + Express 4.x**: Local backend server — lightweight for file upload handling and API key proxying. Express with Multer handles multipart/form-data uploads cleanly.
-- **Deepgram SDK**: Transcription API client — superior accuracy (5.26% WER vs Whisper's 10.6%), fast batch processing (1 hour in 20 seconds), includes word-level timestamps and speaker diarization. Cost: $0.0077/min vs self-hosting at >$1/hour.
+- **FFmpeg.wasm (@ffmpeg/ffmpeg 0.12.15)**: Browser audio processing — full codec support, runs entirely client-side, proven for podcast-length files
+- **@ffmpeg/core-mt (0.12.6)**: Multi-threaded WASM core — 2x faster than single-thread, essential for 45-90 minute podcasts
+- **Vite (latest)**: Development server — CRITICAL for COOP/COEP headers required by FFmpeg.wasm SharedArrayBuffer
+- **HTML5 Audio (existing)**: Playback only — FFmpeg handles processing, HTML5 Audio continues handling playback (no changes needed)
+- **IndexedDB (existing)**: Cache extension — extend existing transcript caching to store processed audio and avoid re-processing
 
-**Critical versions:**
-- Wavesurfer.js v7 is breaking change from v6 (HTML5 Audio vs Web Audio API)
-- Node.js 20.x LTS recommended for long-term support
-- Deepgram for English content; switch to OpenAI Whisper API for multilingual (99 languages, $0.006/min but 10.6% WER)
+**Migration requirement:** PodEdit v1.0 uses `serve` package for dev server. Must migrate to Vite in v2.0 to enable cross-origin isolation headers (COOP/COEP) required for FFmpeg.wasm multi-threading.
+
+**Memory characteristics:** 45-90 minute podcasts (43-86 MB MP3) require 150-400 MB peak memory during processing, well within browser WebAssembly 2GB limit (5-10x safety margin). Explicit cleanup is critical to prevent memory leaks across multiple processing operations.
 
 ### Expected Features
 
-Feature analysis shows clear separation between table stakes (users expect), competitive differentiators (set product apart), and anti-features (commonly requested but problematic).
+Research identifies 8 table stakes features for v2.0 processing workflow, 7 differentiators for competitive advantage, and 6 anti-features to avoid.
 
 **Must have (table stakes):**
-- Audio playback controls (play/pause/seek) — standard HTML5 audio provides these
-- Timestamp-synced transcript — core value prop, click any word to jump audio
-- Mark start/end pairs — core workflow for identifying cuts
-- Visual indication of marked regions — users need to see what they've marked
-- Export JSON cut list — final deliverable with timestamps for external ffmpeg
-- Keyboard shortcuts for playback — transcriptionists expect spacebar for play/pause
+- Process trigger button — clear affordance to start processing (standard "Export Edited Audio" pattern)
+- Determinate progress indicator — percentage + current operation text (users wait 3x longer with progress feedback)
+- Cancel/abort processing — stop button that actually works (critical for 3-6 minute operations)
+- Memory error handling — graceful failure with clear messages about file size limits
+- File download delivery — standard browser download with Blob URL and cleanup
+- Filename suggestion — `{original}_edited_{timestamp}.{ext}` convention
+- Format preservation — output matches input format by default (avoid unexpected quality loss)
+- Browser compatibility check — detect WebAssembly/SharedArrayBuffer, show clear error if unsupported
 
-**Should have (competitive advantage):**
-- Transcript skimming mode — faster than listening, leverage text scanning speed
-- Multi-speed playback (1.5x-2x) — verify cuts faster
-- Undo/redo for mark operations — confidence to experiment without fear
-- Quick review mode — jump between marked sections before export
-- Local-only processing — privacy advantage over subscription competitors
+**Should have (competitive):**
+- No upload required — privacy + speed through local processing (core differentiator)
+- Transcript-driven cuts — text-based editing faster than waveform scrubbing (v1.0 value prop extended)
+- Processing time estimate — set expectations before processing starts ("approximately 2-3 minutes")
+- Cut preview playback — verify cuts before processing to avoid costly re-processing
+- Processing log/details — show FFmpeg commands for debugging and transparency
 
-**Defer (v2+):**
-- Auto-detect silence regions — complex audio analysis, validate manual workflow first
-- Filler word suggestions — AI-powered, needs confidence that auto-suggestions add value
-- Batch processing queue — adds when validated users have volume needs
-- Session persistence — adds after single-session workflow is validated
-
-**Anti-features (avoid):**
-- In-app audio editing — scope creep into full DAW, keep separation of concerns
-- Waveform visualization as primary interface — conflicts with transcript-first philosophy
-- Real-time collaboration — WebSocket infrastructure overkill for solo podcaster tool
+**Defer (v2.x+):**
+- Memory usage indicator — complex to implement, unclear value until users hit limits
+- Format conversion options — adds complexity, may never be needed if preservation works
+- Automatic preview generation — doubles processing time and memory usage (use manual preview instead)
+- Background processing while editing — FFmpeg blocks file access, creates unsafe state confusion
 
 ### Architecture Approach
 
-Standard architecture for audio/transcript applications follows a layered pattern with clear separation: presentation (components), state management (domain stores), service layer (external integrations), and storage (IndexedDB for caching). The critical pattern is using direct DOM manipulation for high-frequency updates (transcript highlighting during playback) to avoid React render overhead.
+FFmpeg.wasm integrates as a clean new layer in PodEdit's existing vanilla JavaScript architecture. V1.0 architecture remains unchanged: AudioService (playback), TranscriptController (navigation), CutController (marking), ExportService (JSON download). V2.0 adds a single ProcessingService that wraps FFmpeg.wasm lifecycle and a ProcessingController for UI. The integration is non-invasive with minimal extensions to existing services.
 
 **Major components:**
-1. **Audio Service** — manages HTML5 audio element lifecycle, exposes simple API (play/pause/seek/getCurrentTime). Wraps native APIs with cleanup logic (revoke object URLs, remove event listeners).
-2. **Transcription Service** — async state machine (IDLE → UPLOADING → QUEUED → PROCESSING → COMPLETED/ERROR) with polling and exponential backoff. Handles 25 MB file size limit through chunking or pre-compression.
-3. **Transcript View** — renders word-by-word transcript with click-to-seek. Uses refs and direct DOM manipulation in `timeupdate` handler to highlight current word at 60fps without React re-renders.
-4. **Cut Point Editor** — manages start/end pairs with validation (no overlaps), undo/redo via command pattern, and autosave to localStorage on every operation.
-5. **Export Service** — serializes state to JSON, sanitizes filenames for shell safety, generates ffmpeg-compatible timestamp format, triggers browser download via Blob API.
+1. **ProcessingService (NEW)** — Orchestrates FFmpeg.wasm lifecycle, lazy-loads WASM core on-demand, builds filter_complex commands from cut regions, manages virtual filesystem cleanup
+2. **ProcessingController (NEW)** — UI for process trigger button, progress bar updates, error display, wires user actions to ProcessingService
+3. **AudioService (EXTEND)** — Add getOriginalFile() method to expose File reference (currently only exposes HTML5 Audio element)
+4. **ExportService (EXTEND)** — Add downloadAudio() method alongside existing downloadJson() for processed file delivery
+5. **FFmpeg.wasm Instance** — Runs in Web Worker, isolated memory, virtual filesystem for file I/O, progress callbacks for UI feedback
 
-**Key architectural patterns:**
-- **HTML5 Audio + Web Audio API Hybrid**: Use native `<audio>` for playback/seeking, optionally pipe through Web Audio API only if advanced processing needed. Avoids memory issues from decoding entire file.
-- **Direct DOM manipulation for transcript sync**: Bypass React state for `timeupdate` events (4-66Hz). Testing shows <1ms per update vs >400ms on throttled devices with React state.
-- **Branded types for time units**: TypeScript types distinguish Seconds vs Milliseconds, preventing unit-mismatch bugs common in audio applications.
-- **Async state machine for transcription**: Explicit states with polling and exponential backoff. Provides progress feedback and handles errors gracefully.
+**Data flow:** User clicks "Process Audio" → ProcessingController gets File from AudioService + cuts from CutController → ProcessingService loads FFmpeg.wasm, writes file to virtual FS, builds filter_complex to remove cut regions, executes FFmpeg, reads output, cleans up → ProcessingController receives Blob → ExportService triggers download.
+
+**Memory lifecycle:** Original file (~100MB) + FFmpeg WASM (~31MB) + virtual FS copy (~100MB) + decoded PCM (~200MB) + output (~100MB) = ~500-600MB peak. Immediate cleanup after processing returns to ~200MB baseline.
 
 ### Critical Pitfalls
 
-Research identified 9 critical pitfalls, prioritized by severity and phase impact:
+Research identified 7 critical FFmpeg.wasm-specific pitfalls (plus 2 v1.0 pitfalls retained for reference). All have clear prevention strategies and phase assignments.
 
-1. **AudioContext creation outside user gesture** — Browser autoplay policies block playback, resulting in silent audio or no playback. This is the #1 reason audio "doesn't work" in production. **Prevention:** Create AudioContext inside click handler OR check `state === "suspended"` and call `resume()` in user gesture. Test in actual browsers, not just localhost.
+1. **Memory exhaustion with large files** — Files >100MB can crash browser tabs. Prevention: file size validation before processing, explicit cleanup (deleteFile + exit), consider chunking for >100MB files. Address in Phase 1 (validation) and Phase 2 (cleanup patterns).
 
-2. **VBR audio seek inaccuracy** — HTML5 audio elements have poor seek accuracy with Variable Bitrate MP3 files. Users click transcript word at 2:34, audio plays from 2:31 or 2:37. **Prevention:** Use CBR audio or add 100-200ms buffer to seek targets. Test with actual podcast files (many are VBR), not just test audio.
+2. **Missing cross-origin isolation headers** — SharedArrayBuffer (required for multi-threading) disabled without COOP/COEP headers. Prevention: configure Vite headers immediately, detect SharedArrayBuffer availability, provide single-thread fallback. Address in Phase 1 (Foundation) — blocks all downstream work.
 
-3. **Large file memory exhaustion** — Browser crashes with 1+ hour podcasts when using `decodeAudioData()`. 60 MB MP3 becomes 600 MB uncompressed PCM in memory. **Prevention:** Use streaming `<audio>` element, never decode entire file. Test with 45-90 minute files from day one.
+3. **iOS/Safari incompatibility** — Safari doesn't support SharedArrayBuffer in Web Workers even with headers. Prevention: detect iOS Safari, automatic single-thread fallback, show performance warning. Address in Phase 1 (detection) and Phase 5 (UAT with real devices).
 
-4. **Transcription API 25 MB file size limit** — Whisper API rejects files over 25 MB. Typical 1-hour podcast at 128 kbps is ~56 MB. **Prevention:** Implement chunking or compress to 16kHz mono (75% size reduction). Check size before upload with clear error message.
+4. **Progress indication failure** — FFmpeg progress events are experimental and return negative/nonsensical values. Prevention: use indeterminate spinner (not percentage bar), parse FFmpeg console logs for time values, show estimated duration warnings. Address in Phase 2 (Core Processing).
 
-5. **No undo/redo for cut point operations** — User accidentally deletes all marks, no way to recover without starting over. Feels like "polish" but requires architectural decisions from day one. **Prevention:** Implement command pattern or state snapshots in Phase 2. Adding later requires rewriting state management.
+5. **Virtual filesystem memory leaks** — Files persist in WASM memory even after processing completes. Prevention: explicit FS('unlink', ...) after readFile, call ffmpeg.exit() to destroy instance, reload FFmpeg before next operation. Address in Phase 2 (Core Processing) — implement from start.
 
-6. **Lost work - no autosave** — User spends 30 minutes marking cuts, browser crashes, all work lost. Browser crashes and accidental tab closes are extremely common. **Prevention:** Autosave to localStorage on every cut point operation. Show "Draft saved" indicator. Restore on page load.
+6. **FFmpeg command construction errors** — Commands that work in native FFmpeg fail or produce corrupted output in browser. Prevention: test commands in browser context (not just native CLI), use simple well-tested patterns, always re-encode at segment boundaries (not -c copy), add fade-in/fade-out to prevent clicks. Address in Phase 2 (command research + testing).
 
-7. **Overlapping cut point validation missing** — User creates overlapping cuts (1:00-2:00, then 1:30-2:30), export generates invalid ffmpeg commands. **Prevention:** Validate on creation, block export if invalid, show visual feedback on conflicts.
-
-8. **Transcription cost runaway** — No caching of results, every page reload retranscribes same file. $0.36/hour seems cheap until 50 reloads = $18 in development. **Prevention:** Cache by file hash in IndexedDB, show "already transcribed" before API call.
-
-9. **Timestamp format inconsistency** — Different parts use different formats (hh:mm:ss.ms, float seconds, milliseconds), causing precision loss and off-by-one errors. **Prevention:** Single timestamp utility, use milliseconds internally (integers), convert only at boundaries.
+7. **FFmpeg.wasm load time** — Initial load takes 10-30 seconds (20MB download + WASM compilation). Prevention: lazy load on "Process" button click (not app init), show explicit loading UI ("Downloading processing engine..."), implement service worker caching. Address in Phase 1 (lazy loading) and Phase 3 (caching).
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure follows dependency order from architecture analysis:
+Based on research, suggested 5-phase structure focused on foundation-first, then incremental feature delivery:
 
-### Phase 1: Core Audio Playback
-**Rationale:** Audio playback must work before transcription (transcription produces timestamps referencing audio timeline). This phase establishes foundation and addresses most critical pitfalls.
-
-**Delivers:**
-- Audio file upload with format validation
-- HTML5 Audio element integration (streaming, no full decode)
-- Playback controls (play/pause/seek)
-- Keyboard shortcuts (space, arrows)
-- Basic UI shell
-
-**Addresses pitfalls:**
-- AudioContext creation in user gesture (Pitfall #1)
-- VBR seek inaccuracy testing (Pitfall #2)
-- Large file memory handling via streaming (Pitfall #3)
-
-**Stack elements:** Vite setup, Vanilla JS, basic Express server, Multer for uploads, Wavesurfer.js integration
-
-**Research flag:** Standard patterns, skip `/gsd:research-phase` — well-documented HTML5 Audio APIs
-
-### Phase 2: Transcription Integration
-**Rationale:** Need transcript data structure before building display components. This phase integrates external API and establishes caching/cost controls.
+### Phase 1: Foundation & Configuration
+**Rationale:** Critical infrastructure must be in place before FFmpeg.wasm integration. Cross-origin isolation headers are a hard requirement that blocks all downstream work. File size validation prevents catastrophic memory crashes. Browser detection enables graceful fallbacks.
 
 **Delivers:**
-- Deepgram API integration
-- Async state machine (upload → poll → complete)
-- Exponential backoff polling
-- File size validation and chunking for >25 MB files
-- IndexedDB caching by file hash
-- Progress indicators and error handling
+- Vite migration (replace `serve` package) with COOP/COEP headers configured
+- SharedArrayBuffer detection with fallback to single-thread
+- File size validation (warn >50MB, block >100MB)
+- iOS/Safari detection with performance warnings
+- FFmpeg.wasm lazy loading pattern (load on button click, not app init)
+- Loading UI for WASM download progress
 
 **Addresses pitfalls:**
-- 25 MB file size limit via chunking (Pitfall #4)
-- Cost runaway via caching (Pitfall #8)
+- Missing cross-origin isolation headers (Pitfall #2) — BLOCKS all work
+- iOS/Safari incompatibility (Pitfall #3) — detect and fallback
+- FFmpeg.wasm load time (Pitfall #7) — lazy loading + UI
+- Memory exhaustion (Pitfall #1) — file size validation
 
-**Stack elements:** Deepgram SDK, async state management, IndexedDB for caching
+**Research needs:** Phase 1 uses well-documented patterns (Vite configuration, browser feature detection). Skip `/gsd:research-phase`.
 
-**Research flag:** May need `/gsd:research-phase` if chunking proves complex — Deepgram API specifics for multi-part uploads
-
-### Phase 3: Transcript Display & Navigation
-**Rationale:** Users need to see and navigate transcript before marking cuts makes sense. This phase implements core value proposition (click-to-jump).
+### Phase 2: Core FFmpeg.wasm Processing
+**Rationale:** Implement the complete processing pipeline with single cut first, then extend to multiple cuts. Focus on memory safety and command correctness before adding UI polish. This phase is high-risk due to FFmpeg command complexity.
 
 **Delivers:**
-- Word-by-word transcript rendering
-- Click-to-seek navigation
-- Real-time highlighting during playback (direct DOM)
-- Timestamp utility with branded types
-- Auto-scroll to keep current word visible
+- ProcessingService skeleton with FFmpeg.wasm integration
+- Virtual filesystem management (writeFile, readFile, explicit cleanup)
+- Filter_complex command construction for cut removal
+- Single cut processing (validate correctness)
+- Multiple cut processing with concatenation
+- Memory cleanup pattern (deleteFile + ffmpeg.exit + reload)
+- Indeterminate progress UI (spinner, not percentage bar)
 
 **Addresses pitfalls:**
-- Timestamp format standardization (Pitfall #9)
-- Performance via direct DOM manipulation (Architecture anti-pattern #1)
+- Virtual filesystem memory leaks (Pitfall #5) — explicit cleanup from start
+- FFmpeg command construction errors (Pitfall #6) — test in browser context
+- Progress indication failure (Pitfall #4) — indeterminate UI
+- Memory exhaustion (Pitfall #1) — cleanup patterns
 
-**Uses architecture:** Pattern #2 (Direct DOM manipulation), Pattern #4 (Branded types)
+**Research needs:** Phase 2 requires FFmpeg command research for cut operations. Commands that work in native FFmpeg may fail in browser. Use `/gsd:research-phase` to research filter_complex patterns for audio concatenation.
 
-**Research flag:** Standard patterns, skip research — established from Metaview blog and React patterns
-
-### Phase 4: Cut Point Management
-**Rationale:** With transcript display working, users can now mark regions. This phase requires careful state management for undo/redo and autosave.
+### Phase 3: Service Integration & Download
+**Rationale:** Wire ProcessingService to existing PodEdit services (AudioService, CutController, ExportService). Implement file download with proper cleanup. Extend IndexedDB caching to avoid re-processing.
 
 **Delivers:**
-- Mark start/end pairs via UI and keyboard
-- Visual indication of marked regions
-- Undo/redo via command pattern
-- Overlap validation
-- Autosave to localStorage
-- Auto-restore on page load
+- AudioService.getOriginalFile() method (expose File reference)
+- AudioService.getDuration() integration (for final segment calculation)
+- CutController integration (pass cut regions to processing)
+- ExportService.downloadAudio() method (Blob download with cleanup)
+- ProcessingController (button, progress display, error handling)
+- IndexedDB extension (cache processed audio by file hash + cut list hash)
+- Filename suggestion (`{original}_edited_{timestamp}.{ext}`)
+- Format preservation (output matches input format)
 
-**Addresses pitfalls:**
-- No undo/redo (Pitfall #5) — implement from start
-- Lost work (Pitfall #6) — autosave on every operation
-- Overlapping cuts (Pitfall #7) — validation on creation
+**Addresses features:**
+- Process trigger button (table stakes)
+- File download delivery (table stakes)
+- Filename suggestion (table stakes)
+- Format preservation (table stakes)
+- No upload required (differentiator — already achieved via architecture)
 
-**Uses architecture:** Command pattern for undo, localStorage for persistence
+**Research needs:** Phase 3 uses standard patterns (service integration, IndexedDB, Blob downloads). Skip `/gsd:research-phase`.
 
-**Research flag:** May need `/gsd:research-phase` for undo/redo patterns — implementation varies by state complexity
-
-### Phase 5: Export & Finalization
-**Rationale:** Requires all data (audio metadata, transcript, cut points) working together. Final integration phase.
+### Phase 4: Error Handling & Polish
+**Rationale:** Robust error handling and UX polish differentiate good from great. Processing operations take 3-6 minutes — errors must be clear and actionable. Memory errors, timeout detection, and cancellation are critical for user confidence.
 
 **Delivers:**
-- JSON export with ffmpeg-compatible format
-- Filename sanitization (shell injection prevention)
-- Timestamp precision consistency
-- Browser download trigger
-- Export validation (no overlaps, valid timestamps)
+- Memory error detection and clear messages ("File too large: 150MB, max 100MB")
+- Processing timeout detection (no console output for >60 seconds = potential hang)
+- Cancel button that actually works (calls ffmpeg.exit(), cleans up state)
+- Processing time estimate before starting ("This will take approximately 3 minutes")
+- FFmpeg console log display (real-time activity indication, debugging transparency)
+- Success/error dialogs with actionable guidance
+- Auto-save cut list before processing (localStorage fallback for recovery)
+
+**Addresses features:**
+- Cancel/abort processing (table stakes)
+- Memory error handling (table stakes)
+- Browser compatibility check (table stakes — already in Phase 1)
+- Processing time estimate (differentiator)
+- Processing log/details (differentiator)
 
 **Addresses pitfalls:**
-- Timestamp precision (Pitfall #9) — verify consistency
-- Export validation (Pitfall #7) — final check before export
+- Memory exhaustion (Pitfall #1) — clear error messages
+- Progress indication failure (Pitfall #4) — console logs as activity indicator
 
-**Uses architecture:** Export Service, Blob API download
+**Research needs:** Phase 4 uses standard error handling patterns. Skip `/gsd:research-phase`.
 
-**Research flag:** Standard patterns, skip research — ffmpeg format is documented
+### Phase 5: UAT & Browser Compatibility
+**Rationale:** FFmpeg.wasm behavior varies significantly across browsers and platforms. iOS/Safari, memory limits, and multi-threading support require real device testing. This phase validates all previous phases work in production conditions.
+
+**Delivers:**
+- iOS Safari testing on real devices (iPhone, iPad)
+- Chrome/Firefox/Edge desktop testing
+- Large file testing (50-150MB podcasts)
+- Multiple processing operations in single session (memory leak detection)
+- Cross-origin isolation header verification in production
+- Single-thread fallback verification
+- Performance benchmarking (processing time vs file size)
+
+**Validates:**
+- iOS/Safari incompatibility (Pitfall #3) — confirm single-thread fallback works
+- Memory exhaustion (Pitfall #1) — confirm limits hold for real files
+- Missing cross-origin isolation (Pitfall #2) — confirm production headers work
+
+**Research needs:** Phase 5 is testing only. Skip `/gsd:research-phase`.
 
 ### Phase Ordering Rationale
 
-- **Audio first** because transcription produces timestamps referencing audio timeline (dependency)
-- **Transcription before display** because need data structure defined before rendering components
-- **Display before editing** because users need to navigate transcript before marking makes sense
-- **Editing before export** because need cut points to exist before serialization
-- **Undo/redo in Phase 4 not later** because retrofitting requires state management rewrite (technical debt)
+1. **Foundation first (Phase 1)** — Cross-origin isolation headers are a hard requirement. File size validation prevents catastrophic crashes. Browser detection enables graceful degradation. Without Phase 1, all subsequent work fails or causes crashes.
+
+2. **Processing core second (Phase 2)** — FFmpeg.wasm integration is the highest-risk work (command construction, memory management). Isolate this risk by implementing processing pipeline first, validate it works, then integrate with UI.
+
+3. **Integration third (Phase 3)** — Once processing core is validated, wire to existing services. This phase is lower risk because v1.0 services are already stable.
+
+4. **Polish fourth (Phase 4)** — Error handling and UX improvements build on validated processing pipeline. Clear errors require understanding failure modes discovered in Phase 2-3.
+
+5. **UAT last (Phase 5)** — Real device testing validates all assumptions about browser compatibility, memory limits, and performance.
+
+**Dependency chain:** Phase 1 (headers) → Phase 2 (processing) → Phase 3 (integration) → Phase 4 (polish) → Phase 5 (UAT). Each phase depends on previous phases being complete and validated.
+
+**Pitfall avoidance:** Most pitfalls addressed in Phase 1 (foundation) and Phase 2 (core). This front-loads risk and prevents compounding issues. Phase 4-5 validate mitigation strategies work in practice.
 
 ### Research Flags
 
-**Phases likely needing `/gsd:research-phase`:**
-- **Phase 2 (Transcription):** If chunking for >25 MB files proves complex, research Deepgram API specifics for multi-part uploads and transcript stitching
-- **Phase 4 (Cut Points):** Undo/redo patterns vary by state complexity — may need research for optimal implementation approach
+Phases likely needing deeper research during planning:
 
-**Phases with standard patterns (skip research):**
-- **Phase 1 (Playback):** HTML5 Audio APIs well-documented on MDN, Wavesurfer.js has clear examples
-- **Phase 3 (Display):** React + audio sync patterns documented (Metaview blog, LetsBuildUI)
-- **Phase 5 (Export):** ffmpeg command format is standardized and documented
+- **Phase 2 (Core Processing):** FFmpeg filter_complex command construction for audio concatenation is complex and browser-specific. Commands that work in native FFmpeg may fail in WASM. Research needed for: cut removal patterns, segment concatenation, fade-in/fade-out at boundaries, re-encoding requirements. Use `/gsd:research-phase 2` before implementation.
+
+Phases with standard patterns (skip research-phase):
+
+- **Phase 1 (Foundation):** Vite configuration, browser feature detection, file validation — all well-documented standard patterns
+- **Phase 3 (Integration):** Service wiring, IndexedDB, Blob downloads — standard web development patterns
+- **Phase 4 (Polish):** Error handling, UI feedback — standard UX patterns
+- **Phase 5 (UAT):** Testing only, no implementation
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All recommendations from official docs or verified multi-source. Wavesurfer.js GitHub confirms v7.12.1, Deepgram pricing/accuracy verified from official comparison. |
-| Features | HIGH | Based on competitor analysis of Descript, Riverside, Adobe Podcast. Table stakes identified from user expectations across multiple tools. Anti-features validated from "common mistakes" articles. |
-| Architecture | HIGH | Patterns verified from MDN (Web Audio API best practices), production implementations (Metaview blog), and performance testing data (timeupdate handler benchmarks). |
-| Pitfalls | HIGH | All critical pitfalls sourced from browser bug reports (Firefox, Chrome), production incidents (Wavesurfer.js issues), and API documentation (Whisper 25 MB limit). |
+| Stack | HIGH | FFmpeg.wasm 0.12.15 verified via official GitHub releases (Jan 2025), Vite configuration verified via multiple working examples, multi-thread performance benchmarks from official docs |
+| Features | MEDIUM | Table stakes features derived from competitor analysis (Descript, Audacity) and UX research, but limited actual user validation. Differentiators based on PodEdit's existing v1.0 value prop (transcript-driven, local processing) |
+| Architecture | HIGH | Integration patterns verified via official FFmpeg.wasm docs, memory lifecycle validated via GitHub issue discussions with confirmed solutions, component boundaries align with existing v1.0 architecture |
+| Pitfalls | HIGH | 7 critical pitfalls confirmed via multiple GitHub issues with reproduction cases, prevention strategies validated via community solutions, memory limits confirmed via browser specs (2GB WebAssembly limit) |
 
 **Overall confidence:** HIGH
 
+Research is grounded in official FFmpeg.wasm documentation (v0.12.15 released Jan 2025), verified GitHub issues with confirmed solutions, and browser API specifications. Feature expectations have medium confidence due to limited user validation, but table stakes features are industry-standard patterns. Architecture and pitfalls have high confidence due to multiple verification sources and proven solutions.
+
 ### Gaps to Address
 
-Minor gaps that need validation during implementation:
+**Feature validation gap:** Table stakes and differentiators derived from competitor analysis, not direct user research. Validate during Phase 5 (UAT) by observing user expectations. If users request missing features, consider for v2.1.
 
-- **Deepgram chunking specifics:** If files exceed 25 MB, need to verify Deepgram's recommended approach for splitting/stitching. Documented in general but may have API-specific requirements. **Handle:** Phase 2 planning will include API documentation review before implementation.
+**iOS Safari performance gap:** Research confirms single-thread fallback works on iOS, but processing time impact unclear (likely 2x slower = 6-12 min for 60-min podcast). Validate during Phase 5. If unacceptable, document as known limitation or consider server-side processing option for v2.1.
 
-- **Undo/redo state complexity:** Command pattern is standard, but optimal implementation depends on final state structure. May need refactoring if state becomes complex. **Handle:** If Phase 4 planning reveals high complexity, use `/gsd:research-phase` for undo/redo patterns before implementation.
+**Memory limit edge cases:** Research confirms 45-90 minute podcasts fit in memory, but variable bitrate files, uncompressed formats (WAV), or longer files may exceed limits. Validate during Phase 5 with real user files. If issues occur, refine file size validation thresholds in Phase 4.
 
-- **VBR audio handling:** Research identifies problem and buffer solution (100-200ms), but exact buffer size may need tuning with real podcast files. **Handle:** Phase 1 testing with VBR MP3s will establish optimal buffer. Consider documenting CBR recommendation for users.
-
-- **IndexedDB quota handling:** Known that storage is limited to 60% of disk, but graceful degradation strategy not researched. **Handle:** Phase 2 will add `QuotaExceededError` handler with clear user message. Non-critical since transcripts are small (<1 MB typically).
+**FFmpeg command robustness:** Research provides command patterns, but edge cases (overlapping cuts, cuts at file start/end, zero-length segments) need validation. Test explicitly in Phase 2. If issues occur, add validation to CutController in Phase 3.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Wavesurfer.js GitHub](https://github.com/katspaugh/wavesurfer.js) — Version 7.12.1 confirmed, regions plugin verified, HTML5 Audio architecture
-- [Wavesurfer.js Official Site](https://wavesurfer.xyz/) — API documentation, Timeline and Regions plugins
-- [MDN Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) — Best practices, performance, autoplay policies
-- [Vite Official Docs](https://vite.dev/guide/) — Development server, ES2026 baseline
-- [Deepgram vs Whisper Comparison](https://deepgram.com/learn/whisper-vs-deepgram) — Accuracy (5.26% vs 10.6% WER), speed, pricing
-- [OpenAI Whisper API Pricing](https://costgoat.com/pricing/openai-transcription) — $0.006/min confirmed
-- [Firefox Bug 1153564](https://bugzilla.mozilla.org/show_bug.cgi?id=1153564) — VBR seek accuracy issues documented
-- [Firefox Bug 1931473](https://bugzilla.mozilla.org/show_bug.cgi?id=1931473) — Memory consumption during audio playback
-- [OpenAI Whisper 25 MB Limit](https://community.openai.com/t/whisper-api-increase-file-limit-25-mb/566754) — File size constraint confirmed
+- [GitHub - ffmpegwasm/ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) — Latest version (0.12.15, Jan 2025), API documentation, architecture overview
+- [ffmpeg.wasm Official Documentation](https://ffmpegwasm.netlify.app/) — Installation, performance benchmarks (~25x slower than native), multi-threading setup
+- [Vite Configuration Examples](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/798) — COOP/COEP headers for cross-origin isolation
+- [FFmpeg Filters Documentation](https://ffmpeg.org/ffmpeg-filters.html) — Official filter reference (atrim, asetpts, concat)
 
 ### Secondary (MEDIUM confidence)
-- [Metaview Blog: Syncing Transcript with Audio in React](https://www.metaview.ai/resources/blog/syncing-a-transcript-with-audio-in-react) — Direct DOM manipulation pattern for performance
-- [LetsBuildUI: Audio Player with React Hooks](https://www.letsbuildui.dev/articles/building-an-audio-player-with-react-hooks/) — React audio integration patterns
-- [Descript Official Site](https://www.descript.com/podcasting) — Competitor feature analysis
-- [Riverside Features](https://riverside.com/clean-up-speech) — Text-based editing patterns
-- [Adobe Podcast](https://podcast.adobe.com/en/transcribe-audio-with-adobe-podcast) — Industry standard features
-- [Web Audio API Performance Notes](https://padenot.github.io/web-audio-perf/) — Performance benchmarks and best practices
-- [IndexedDB Storage Limits - RxDB](https://rxdb.info/articles/indexeddb-max-storage-limit.html) — 60% of disk quota confirmed
+- [Building Browser Audio Tools - SoundTools](https://soundtools.io/blog/building-browser-audio-tools-ffmpeg-wasm/) — Memory management patterns, 100MB file usage (~300-400MB peak)
+- [FFmpeg.wasm Memory Issues - GitHub #516](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/516) — 2GB WebAssembly hard limit confirmed
+- [SharedArrayBuffer Requirements - GitHub #234](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/234) — Cross-origin isolation setup requirements
+- [iOS Safari Compatibility - GitHub #299](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299) — SharedArrayBuffer not supported in Safari Web Workers
 
 ### Tertiary (LOW confidence)
-- [React vs Vue Comparison 2026](https://www.thefrontendcompany.com/posts/vue-vs-react) — Framework trade-offs for small apps
-- Various "best podcast editing tools" articles — Feature landscape validation, needs validation with actual user testing
+- [Progress Event Limitations - GitHub #600](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/600) — Progress events experimental, values unreliable
+- [Speed Discussion - GitHub #326](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/326) — Performance characteristics (~20-25x slower than native)
+- Community blog posts on FFmpeg.wasm integration patterns — Various implementation experiences
 
 ---
-*Research completed: 2026-01-22*
+*Research completed: 2026-01-26*
 *Ready for roadmap: yes*

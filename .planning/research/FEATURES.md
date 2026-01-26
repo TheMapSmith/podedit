@@ -1,8 +1,8 @@
 # Feature Research
 
-**Domain:** Podcast Audio Editing with Transcript Navigation
-**Researched:** 2026-01-22
-**Confidence:** HIGH
+**Domain:** Browser-based audio processing for podcast editing
+**Researched:** 2026-01-26
+**Confidence:** MEDIUM
 
 ## Feature Landscape
 
@@ -12,14 +12,14 @@ Features users assume exist. Missing these = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Audio playback controls (play/pause/seek) | Essential for listening to verify edits | LOW | Standard HTML5 audio element provides these |
-| Timestamp-synced transcript | Core value prop - navigate audio via text | MEDIUM | Requires accurate transcription with word-level timestamps |
-| Click-to-jump navigation | Industry standard (Descript, Riverside, Adobe Podcast all have this) | LOW | Click any word/timestamp to jump audio to that point |
-| Keyboard shortcuts for playback | Transcriptionists expect spacebar for play/pause, shortcuts for skip | LOW | Space for play/pause, Ctrl+, for rewind, Ctrl+. for forward |
-| Visual indication of playback position | Users need to see where they are in transcript | LOW | Highlight current word/sentence as audio plays |
-| Mark/delete sections | Core workflow - marking unwanted sections for removal | MEDIUM | Need to track start/end pairs, visualize marked regions |
-| Export cut list | Final output - instructions for actual audio processing | LOW | JSON with timestamps for external ffmpeg processing |
-| Upload audio file | Entry point to workflow | LOW | Accept common formats (mp3, wav, m4a) |
+| Process trigger button | Users need clear affordance to start processing | LOW | Standard pattern: "Export" or "Download Edited Audio" button. Should be visually distinct, placed near cut list/timeline |
+| Determinate progress indicator | Long-running operations require progress feedback to prevent abandonment | MEDIUM | Research shows users wait 3x longer with animated progress bar. Show percentage + estimated time remaining |
+| Cancel/abort processing | Users expect ability to stop long operations | MEDIUM | Critical UX issue: many professional audio tools have non-functional cancel buttons. Must actually stop processing and clean up resources |
+| Memory error handling | Browser memory limits (2-4GB) require graceful failure | MEDIUM | Handle QuotaExceededError, provide clear message about file size limits, suggest workarounds |
+| File download delivery | Browser download is expected pattern for generated files | LOW | Use Blob + createObjectURL() + anchor download attribute. Must call revokeObjectURL() to prevent memory leaks |
+| Filename suggestion | Generated files need sensible default names | LOW | Convention: `{original-name}_edited_{timestamp}.{ext}`. Use YYYYMMDD_HHMM format for timestamp |
+| Format preservation | Output should match input format by default | MEDIUM | If user uploads MP3, export MP3. Avoids unexpected quality loss or compatibility issues |
+| Processing status visibility | User needs to know what's happening during processing | LOW | Show current operation: "Loading FFmpeg...", "Analyzing audio...", "Applying cuts...", "Generating output..." |
 
 ### Differentiators (Competitive Advantage)
 
@@ -27,14 +27,14 @@ Features that set the product apart. Not required, but valuable.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Transcript skimming mode | Faster than listening - quickly scan to find problem areas | LOW | Already have transcript, just need good text UI |
-| Multi-speed playback | Verify cuts faster at 1.5x-2x speed | LOW | HTML5 audio playbackRate property |
-| Undo/redo for mark operations | Confidence to experiment without fear of losing work | MEDIUM | Maintain operation history stack |
-| Keyboard shortcuts for marking | Power users can mark cuts without mouse | LOW | M to mark start, N to mark end, D to delete marked region |
-| Auto-detect silence regions | Suggest dead air to remove | HIGH | Requires audio analysis, may not be v1 |
-| Context preservation on marks | Show surrounding text when reviewing marked sections | LOW | Display X words before/after each marked region |
-| Quick review mode | Jump between all marked sections to verify before export | MEDIUM | Navigation between marks, play each in context |
-| Local-only processing | Privacy - no server upload of full audio beyond transcription | LOW | Everything runs in browser except initial transcription API |
+| No upload required | Privacy + speed: process locally without server round-trip | LOW | Already decided: browser-based processing. Strong differentiator for privacy-conscious users |
+| Transcript-driven cuts | Text-based editing is faster than waveform scrubbing | LOW | Core value already built in v1.0. Differentiates from traditional DAWs |
+| Cut preview playback | Verify cuts before processing saves time on re-processing | MEDIUM | Play across cut boundary to hear transition. Useful for 45-90min files where re-processing is costly |
+| Processing time estimate | Set expectations upfront based on file size and cut count | MEDIUM | Show estimate before processing starts: "This will take approximately 2-3 minutes" |
+| Browser compatibility check | Detect WebAssembly support, show clear error if incompatible | LOW | Feature detection: `if (!window.WebAssembly)` with fallback message. Prevents cryptic failures |
+| Memory usage indicator | Show current memory usage, warn before hitting limits | HIGH | Track approximate memory during processing, warn at 80% threshold. Helps users understand constraints |
+| Processing log/details | Advanced users want to see FFmpeg commands and output | LOW | Show FFmpeg command being executed, capture stdout/stderr. Helps debugging and builds trust |
+| Auto-save cut list | Don't lose work if processing fails or browser crashes | MEDIUM | Save cut list to localStorage before processing starts. Restore on page reload |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
@@ -42,167 +42,261 @@ Features that seem good but create problems.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| In-app audio editing | "Why can't it just cut the audio?" | Scope creep into full DAW territory, requires audio processing libraries, large bundle size | Export JSON for external ffmpeg - cleaner separation of concerns |
-| Waveform visualization | "Professional tools have waveforms" | Adds complexity without solving core problem (finding cuts via text is faster than visual scanning) | Focus on transcript navigation superiority over waveform scanning |
-| Session persistence/project files | "I want to save my work" | Adds database layer, state management complexity for v1 | Start fresh each session - v1 is single-session tool, add later if needed |
-| Multi-file batch processing | "I have 10 episodes to edit" | Queue management, progress tracking, error handling complexity | One file at a time for v1, validate workflow first |
-| Filler word auto-removal | "Just delete all my um's" | Context matters - some pauses are thinking, not filler; auto-removal loses nuance | Manual marking gives control, add AI suggestions later |
-| Real-time collaboration | "Multiple editors on one episode" | WebSocket infrastructure, conflict resolution, auth | Overkill for solo podcaster tool, not MVP priority |
-| Cloud storage integration | "Save to Dropbox" | OAuth flows, API quotas, error handling | Local file workflow is simpler, add later if validated |
+| Automatic preview generation | "I want to hear result before export" | Doubles processing time, doubles memory usage. For 90min file, generates 90min of preview before user can export | Manual "Preview Cut" button that plays 5 seconds around a specific cut boundary |
+| Undo/redo after processing | "I made a mistake, undo the export" | Browser processing is destructive. Can't undo after export without re-processing entire file | Keep original file + cut list intact. User can adjust cuts and re-process (non-destructive workflow) |
+| Real-time waveform during processing | "Show me visual feedback" | FFmpeg.wasm doesn't expose frame-by-frame output. Waveform requires separate decoding pass | Use determinate progress bar + current operation text. Simpler and sufficient |
+| Background processing while editing | "Let me keep editing while it processes" | FFmpeg.wasm runs in web worker but blocks file access. Can't safely edit cut list while processing same file | Show modal dialog during processing, prevent editing. Clear "processing" vs "editing" states |
+| Automatic filename generation | "Just download it without asking" | Users lose track of files, can't choose location. Browser security requires user gesture for download | Show file save dialog with suggested name. User confirms location and can rename |
+| Format conversion options | "Export as WAV/MP3/AAC" | Adds UI complexity, increases testing surface, complicates error handling. Format support varies by browser | Preserve input format for v2.0. Add format conversion in v2.x if users actually request it |
 
 ## Feature Dependencies
 
 ```
-[Upload Audio]
-    └──requires──> [Transcription API Call]
-                       └──requires──> [Display Transcript]
-                                          └──enables──> [Click-to-Jump Navigation]
-                                          └──enables──> [Mark Cut Points]
-                                                           └──requires──> [Visual Indication of Marks]
-                                                           └──requires──> [Export Cut List]
+File Download Delivery
+    └──requires──> Process Trigger Button
+                       └──requires──> FFmpeg.wasm Loading
+                                          └──requires──> Browser Compatibility Check
 
-[Playback Controls] ──enhances──> [Click-to-Jump Navigation]
-[Keyboard Shortcuts] ──enhances──> [All Core Features]
-[Undo/Redo] ──enhances──> [Mark Cut Points]
+Progress Indicator
+    └──requires──> Processing Status Visibility
+                       └──enhances──> Cancel/Abort Processing
 
-[Waveform Visualization] ──conflicts──> [Transcript-First Philosophy]
-[In-App Audio Editing] ──conflicts──> [External Processing Model]
+Cut Preview Playback
+    └──requires──> Audio Playback (already built in v1.0)
+    └──conflicts──> Automatic Preview Generation (memory usage)
+
+Auto-save Cut List
+    └──enhances──> Cancel/Abort Processing (preserves work if aborted)
+    └──enhances──> Memory Error Handling (can recover from failure)
+
+Processing Time Estimate
+    └──requires──> File Size Analysis
+    └──enhances──> Progress Indicator (sets expectations)
 ```
 
 ### Dependency Notes
 
-- **Upload/Transcription/Display is sequential:** Cannot show transcript until transcription completes; cannot navigate until displayed
-- **Marking requires visual feedback:** Users must see what they've marked to avoid confusion
-- **Keyboard shortcuts multiply power:** Every core feature becomes 10x faster with shortcuts
-- **Undo enhances confidence:** Experimental marking without fear requires undo capability
-- **Waveform conflicts with philosophy:** Adding waveform undermines "transcript is faster" value proposition
-- **In-app editing conflicts with architecture:** Tool is for marking cuts, not performing them
+- **File Download requires Process Trigger:** Can't download until processing completes. Process trigger initiates the workflow.
+- **Progress requires Status Visibility:** Progress percentage is meaningless without context about what operation is running.
+- **Cut Preview conflicts with Auto Preview:** Both consume memory. Preview-on-demand is safer for large files.
+- **Auto-save enhances Cancel/Abort:** If user cancels processing, their cut list is preserved for retry.
+- **Time Estimate enhances Progress:** Users tolerate waits better when expectations are set upfront.
 
 ## MVP Definition
 
-### Launch With (v1.0)
+### Launch With (v2.0)
 
-Minimum viable product — what's needed to validate the concept.
+Minimum viable audio processing — what's needed to complete the workflow.
 
-- [x] **Audio upload** — Entry point, must accept common formats
-- [x] **Transcription integration** — Core dependency, API call to transcription service
-- [x] **Transcript display with timestamps** — Must be readable, scannable text
-- [x] **Click-to-jump navigation** — Click any timestamp/word to jump audio
-- [x] **Playback controls** — Play, pause, seek bar, current time display
-- [x] **Keyboard shortcuts for playback** — Space for play/pause, skip forward/back
-- [x] **Mark start/end pairs** — Core workflow for identifying cuts
-- [x] **Visual indication of marked regions** — Highlight marked text sections
-- [x] **Export JSON cut list** — Final deliverable with timestamps for ffmpeg
-- [x] **Basic keyboard shortcuts for marking** — M for mark start, N for mark end
+- [x] **Process trigger button** — Clear affordance to start processing (P1)
+- [x] **Determinate progress indicator** — Percentage + current operation text (P1)
+- [x] **Cancel/abort processing** — Stop button that actually works (P1)
+- [x] **Memory error handling** — Graceful failure with clear message (P1)
+- [x] **File download delivery** — Standard browser download with Blob URL (P1)
+- [x] **Filename suggestion** — `{original}_edited_{timestamp}.{ext}` pattern (P1)
+- [x] **Format preservation** — Output matches input format (P1)
+- [x] **Browser compatibility check** — Detect WebAssembly, show error if unsupported (P1)
 
-### Add After Validation (v1.x)
+### Add After Validation (v2.x)
 
-Features to add once core workflow is validated and used.
+Features to add once core processing is working and users request them.
 
-- [ ] **Undo/redo operations** — Adds when users have built marking workflows and want confidence
-- [ ] **Multi-speed playback** — Adds when users report verification is slow
-- [ ] **Quick review mode** — Adds when users have many marks and need to verify them all
-- [ ] **Context preservation in export** — Adds when users want notes about why each cut was made
-- [ ] **Session persistence** — Adds when users report interruptions in editing sessions
-- [ ] **Auto-save marked regions** — Adds with session persistence to prevent lost work
+- [ ] **Cut preview playback** — Verify cuts before processing (P2, if users report re-processing pain)
+- [ ] **Processing time estimate** — Set expectations before processing starts (P2, if users report uncertainty)
+- [ ] **Processing log/details** — Show FFmpeg commands for debugging (P2, if users report errors)
+- [ ] **Auto-save cut list** — Recover from failures (P2, if users report lost work)
 
-### Future Consideration (v2+)
+### Future Consideration (v3+)
 
-Features to defer until product-market fit is established.
+Features to defer until clear user demand exists.
 
-- [ ] **Auto-detect silence regions** — Complex audio analysis, validate manual workflow first
-- [ ] **Filler word suggestions** — AI-powered, needs confidence that auto-suggestions are valuable
-- [ ] **Batch processing queue** — Adds when validated users have volume needs
-- [ ] **Waveform overlay** — Only if transcript-first proves insufficient for some use cases
-- [ ] **Cloud storage integration** — Adds when local-only becomes friction point
-- [ ] **Collaboration features** — Adds if team editing becomes common use case
+- [ ] **Memory usage indicator** — Complex to implement accurately, unclear value until users hit limits
+- [ ] **Format conversion options** — Adds complexity, may never be needed if format preservation works well
+- [ ] **Batch processing** — Process multiple files, but conflicts with "one file at a time" constraint
+- [ ] **Cloud backup of cut lists** — Requires server infrastructure, conflicts with "browser-only" constraint
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Transcript display with timestamps | HIGH | MEDIUM | P1 |
-| Click-to-jump navigation | HIGH | LOW | P1 |
-| Mark start/end pairs | HIGH | MEDIUM | P1 |
-| Export JSON cut list | HIGH | LOW | P1 |
-| Playback controls | HIGH | LOW | P1 |
-| Keyboard shortcuts (playback) | HIGH | LOW | P1 |
-| Visual indication of marks | HIGH | LOW | P1 |
-| Audio upload | HIGH | LOW | P1 |
-| Keyboard shortcuts (marking) | MEDIUM | LOW | P1 |
-| Multi-speed playback | MEDIUM | LOW | P2 |
-| Undo/redo operations | MEDIUM | MEDIUM | P2 |
-| Quick review mode | MEDIUM | MEDIUM | P2 |
-| Context preservation | MEDIUM | LOW | P2 |
-| Session persistence | MEDIUM | HIGH | P2 |
-| Auto-detect silence | LOW | HIGH | P3 |
-| Filler word suggestions | LOW | HIGH | P3 |
-| Waveform visualization | LOW | MEDIUM | P3 |
-| Batch processing | LOW | HIGH | P3 |
+| Process trigger button | HIGH | LOW | P1 |
+| Progress indicator (determinate) | HIGH | MEDIUM | P1 |
+| Cancel/abort processing | HIGH | MEDIUM | P1 |
+| Memory error handling | HIGH | MEDIUM | P1 |
+| File download delivery | HIGH | LOW | P1 |
+| Filename suggestion | MEDIUM | LOW | P1 |
+| Format preservation | HIGH | MEDIUM | P1 |
+| Browser compatibility check | HIGH | LOW | P1 |
+| Cut preview playback | MEDIUM | MEDIUM | P2 |
+| Processing time estimate | MEDIUM | MEDIUM | P2 |
+| Processing log/details | LOW | LOW | P2 |
+| Auto-save cut list | MEDIUM | MEDIUM | P2 |
+| Memory usage indicator | LOW | HIGH | P3 |
+| Format conversion | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for launch (validates core workflow)
-- P2: Should have, add when validated (improves proven workflow)
-- P3: Nice to have, future consideration (expands capabilities)
+- P1: Must have for v2.0 launch (audio processing MVP)
+- P2: Should have, add when users encounter pain points
+- P3: Nice to have, defer until clear demand
+
+## UX Pattern Details
+
+### Processing Trigger
+
+**Placement:** Primary action near cut list summary
+**Label:** "Export Edited Audio" (clearer than "Process" or "Download")
+**Visual treatment:** Primary button color, slightly larger than secondary actions
+**State management:**
+- Disabled when no cuts marked (gray, with tooltip: "Mark at least one cut to export")
+- Disabled during processing (prevent double-click)
+- Enabled when ready to process
+
+### Progress Indicator
+
+**Type:** Determinate progress bar (percentage-based)
+**Elements:**
+- Horizontal bar showing 0-100% fill
+- Percentage text: "47% complete"
+- Current operation text: "Applying cut 3 of 8..."
+- Time estimate (if available): "About 1 minute remaining"
+- Cancel button positioned next to progress bar
+
+**Update frequency:**
+- Progress percentage: every 500ms minimum (avoid UI thrashing)
+- Operation text: when FFmpeg stage changes
+
+### Error Handling
+
+**Memory errors:**
+```
+Error Dialog:
+Title: "File Too Large for Browser Processing"
+Body: "This audio file (127 MB) exceeds browser memory limits.
+
+Try these solutions:
+• Close other browser tabs to free memory
+• Process a shorter section of the file
+• Use the JSON export and process with FFmpeg locally
+
+File size limit: Approximately 90 minutes of audio"
+
+Actions: [Close] [Export JSON Instead]
+```
+
+**Format errors:**
+```
+Error Dialog:
+Title: "Unsupported Audio Format"
+Body: "This file format is not supported for browser processing.
+
+Supported formats: MP3, WAV, M4A, OGG
+Detected format: FLAC
+
+Convert the file to a supported format and try again."
+
+Actions: [Close]
+```
+
+**Processing errors:**
+```
+Error Dialog:
+Title: "Processing Failed"
+Body: "An error occurred while processing the audio.
+
+Technical details:
+[FFmpeg stderr output]
+
+Your cut list has been saved. You can try again or export the cut list as JSON."
+
+Actions: [Try Again] [Export JSON] [Close]
+```
+
+### File Download
+
+**Pattern:**
+1. Create Blob from processed audio data
+2. Generate blob URL: `URL.createObjectURL(blob)`
+3. Create temporary anchor element
+4. Set `download` attribute with suggested filename
+5. Programmatically click anchor
+6. Immediately revoke blob URL: `URL.revokeObjectURL(url)`
+
+**Filename template:**
+```javascript
+// Input: "podcast-episode-42.mp3"
+// Output: "podcast-episode-42_edited_20260126_1435.mp3"
+
+const suggestedFilename = `${originalName}_edited_${timestamp}.${extension}`;
+```
+
+**Modern alternative (if supported):**
+Use File System Access API `showSaveFilePicker()` to let user choose location upfront. Fall back to blob URL method for compatibility.
 
 ## Competitor Feature Analysis
 
-Based on research of leading podcast editing tools in 2026:
+| Feature | Descript (cloud-based) | Audacity (desktop) | Our Approach (browser) |
+|---------|------------------------|-------------------|------------------------|
+| Processing location | Server-side | Native desktop | Browser WebAssembly |
+| Progress indication | Real-time percentage + waveform preview | Modal dialog with percentage | Modal dialog with percentage + operation text |
+| Cancel processing | Yes, instant | Yes, instant | Yes, must clean up resources properly |
+| Preview before export | Automatic (text-based editing) | Manual playback of timeline | Manual preview of cut boundaries |
+| Undo after export | Yes (non-destructive, cloud storage) | History panel (session only) | No undo (re-process with adjusted cuts) |
+| File size limits | Unlimited (server processing) | Limited by disk space | Limited by browser memory (2-4GB) |
+| Format options | Multiple formats on export | Multiple formats via export dialog | Preserve input format (simpler) |
+| Download delivery | Cloud storage + download | Save to chosen location | Browser download with suggested name |
 
-| Feature | Descript | Riverside | Adobe Podcast | Our Approach (PodEdit) |
-|---------|----------|-----------|---------------|----------------------|
-| Transcript generation | Automatic on upload, 95%+ accuracy | Automatic with speaker labels | Text-based with word highlighting | API integration (external service) |
-| Text-based editing | Delete words = delete audio | Edit transcript = edit audio | Cut/copy/paste text editing | Mark regions only (no in-app editing) |
-| Playback controls | Full timeline editor | Text-based with timeline | Integrated player | Simple HTML5 player with shortcuts |
-| Filler word removal | One-click auto-removal of um/uh | Mark all, remove individually or batch | AI-powered detection | Manual marking (control over context) |
-| Silence detection | Adjustable sensitivity settings | Auto-detect pauses 3+ seconds | Automatic with AI refinement | Future feature (v2+) |
-| Export format | Edited audio file (mp4, wav, etc) | Edited media output | Direct integration with Premiere | JSON cut list for external processing |
-| Waveform display | Full waveform timeline | Optional waveform view | Integrated with transcript | Not included (transcript-first) |
-| Collaboration | Real-time multi-user editing | Team workspaces | Adobe Creative Cloud integration | Single user (v1) |
-| Pricing model | Subscription ($12-24/mo) | Subscription ($15-24/mo) | Subscription (Creative Cloud) | Free/local tool (only pay for transcription API) |
-
-**Key differentiators for PodEdit:**
-1. **Simpler scope** - Marking only, not full editing (faster to build, faster to learn)
-2. **Local-first** - No subscription, no account, no cloud storage (privacy + simplicity)
-3. **External processing model** - Export JSON for ffmpeg gives power users flexibility
-4. **Transcript-only navigation** - No waveform complexity, leaner interface
-5. **Single-session focus** - Start, mark, export, done (reduces state management)
+**Key takeaway:** Browser-based approach trades format flexibility and undo capability for privacy and no-upload workflow. This aligns with the "transcript-driven, browser-only" core value.
 
 ## Sources
 
-### Leading Tools & Features
-- [Descript AI-Powered Podcast Editor](https://www.descript.com/podcasting)
-- [Riverside Text-Based Editing](https://riverside.com/clean-up-speech)
-- [Adobe Podcast Transcription](https://podcast.adobe.com/en/transcribe-audio-with-adobe-podcast)
-- [Top 10 Tools for Auto Editing Podcast Clips in 2026](https://www.livelink.ai/blog-posts/top-tools-for-auto-editing-podcast-clips)
+### FFmpeg.wasm Best Practices
+- [Unleashing FFmpeg Power in the Browser - Medium](https://medium.com/@pardeepkashyap650/unleashing-ffmpeg-power-in-the-browser-a-guide-to-webassembly-video-processing-ec00297aa6ef)
+- [ffmpeg.wasm GitHub Repository](https://github.com/ffmpegwasm/ffmpeg.wasm)
+- [ffmpeg.wasm Official Documentation](https://ffmpegwasm.netlify.app/)
+- [Building a Privacy-First Video to Audio Converter - DEV Community](https://dev.to/xg_fei_e836667012d8841d03/building-a-privacy-first-video-to-audio-converter-with-ffmpegwasm-1kd0)
+- [ffmpeg.audio.wasm - Audio-focused build](https://github.com/JorenSix/ffmpeg.audio.wasm)
 
-### Workflow & Best Practices
-- [Descript for Editing: Mastering Podcast Edits](https://thepodcastconsultant.com/blog/descript-for-editing)
-- [12 Best AI Tools For Transcription in 2026](https://sonix.ai/resources/best-ai-tools-for-transcription/)
-- [Edit Transcript in Sync Editor - SyncWords](https://www.syncwords.com/tools/transcript-editor)
+### Progress Indicators and UX Patterns
+- [Progress Trackers and Indicators - UserGuiding](https://userguiding.com/blog/progress-trackers-and-indicators)
+- [12 UI/UX Design Trends That Will Dominate 2026](https://www.index.dev/blog/ui-ux-design-trends)
 
-### Filler Word & Silence Detection
-- [Cleanvoice AI - Silence Remover](https://cleanvoice.ai/blog/silence-remover/)
-- [10 Best Filler-Word Removers for Fast Editing](https://www.opus.pro/blog/best-filler-word-removers)
-- [Descript Silence Remover Tool](https://www.descript.com/tools/silence-remover)
-- [TimeBolt Auto Cut Silence](https://www.timebolt.io/)
+### Browser File Download Patterns
+- [URL: createObjectURL() - MDN](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static)
+- [Programmatically downloading files in the browser - LogRocket](https://blog.logrocket.com/programmatically-downloading-files-browser/)
+- [How to save a file - web.dev](https://web.dev/patterns/files/save-a-file)
+- [Blob - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
 
-### Keyboard Shortcuts & Navigation
-- [Descript Keyboard Shortcuts](https://help.descript.com/hc/en-us/articles/10255582172173-Keyboard-shortcuts)
-- [Rev.com Transcription Editor](https://support.rev.com/hc/en-us/articles/29824992702989-Transcription-Editor)
-- [InqScribe Transcription Software](https://www.inqscribe.com/)
-- [HappyScribe Transcript Editor](https://www.happyscribe.com/features/transcript-editor)
+### Browser Memory and Error Handling
+- [Exceeding the buffering quota - Chrome Developers](https://developer.chrome.com/blog/quotaexceedederror)
+- [Audio + memory usage = headache - HTML5 Game Devs](https://www.html5gamedevs.com/topic/19339-audio-memory-usage-headache/)
+- [OOM causes browser crash in decodeAudioData - Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1066036)
 
-### Common Mistakes & Anti-Patterns
-- [10 Common Podcast Editing Mistakes and How to Avoid Them](https://vidpros.com/10-common-podcast-editing-mistakes-and-how-to-avoid-them/)
-- [Best Podcast Editing Software 2026 – Top Tools & Tips](https://work-management.org/marketing/podcast/podcast-editing-software/)
-- [14 Best Podcast Editing Tools For Beginners in 2026](https://talks.co/p/podcast-editing-tools/)
+### Web Audio API and Large File Handling
+- [Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- [Web Audio API Best Practices - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices)
+- [Loading sound files faster - Clicktorelease](https://www.clicktorelease.com/blog/loading-sounds-faster-using-html5-web-audio-api/)
+- [Phonograph.js: Stream large audio files - Medium](https://medium.com/@Rich_Harris/phonograph-js-tolerable-mobile-web-audio-55286bd5e567)
+- [Web Audio API Performance - Paul Adenot](https://padenot.github.io/web-audio-perf/)
 
-### Waveform vs Transcript Comparison
-- [The Fundamentals of Waveform Editing](https://theproaudiofiles.com/fundamentals-waveform-editing/)
-- [Audapolis: Edit audio files by transcript, not waveform - Hacker News](https://news.ycombinator.com/item?id=41036231)
-- [Resound vs. Descript Comparison](https://www.resound.fm/blog/resound-vs-descript)
+### Cancel/Abort UX Issues
+- [Export Audio Mixdown: Cancel - Steinberg Forums](https://forums.steinberg.net/t/export-audio-mixdown-cancel/645001)
+- [Can we get a true ABORT for Export? - Steinberg Forums](https://forums.steinberg.net/t/can-we-please-finally-get-a-true-instantaneous-abort-for-export-audio-mixdown/721393)
+
+### Audio Editor Features and Standards
+- [Best Podcast Editing Software in 2026 - Podcast Videos](https://www.podcastvideos.com/articles/best-podcast-editing-software-2026/)
+- [10 Best Podcast Editing Software - Riverside](https://riverside.com/blog/podcast-editing-software)
+- [Effective Sound File Naming - SoundCy](https://soundcy.com/article/how-to-name-sound-file)
+
+### Non-Destructive Editing Workflows
+- [Destructive vs Non-Destructive Audio Editing - The Podcast Host](https://www.thepodcasthost.com/editing-production/destructive-vs-non-destructive-editing/)
+- [Audio Integrity: Destructive vs Non-Destructive - Journalism University](https://journalism.university/electronic-media/audio-integrity-destructive-non-destructive-editing/)
+- [Ocenaudio Download (2026 Latest)](https://www.filehorse.com/download-ocenaudio/)
+
+### Browser Format Support
+- [MP3 audio format - Can I use](https://caniuse.com/mp3)
+- [Audio format with limited browser support - PowerMapper](https://www.powermapper.com/products/sortsite/rules/bughtmlaudiocodec/)
+- [Detect Supported Audio Formats with JavaScript - David Walsh](https://davidwalsh.name/detect-supported-audio-formats-javascript)
 
 ---
-*Feature research for: PodEdit - Podcast Audio Editing with Transcript Navigation*
-*Researched: 2026-01-22*
+*Feature research for: PodEdit v2.0 Browser-based Audio Processing*
+*Researched: 2026-01-26*
