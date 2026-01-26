@@ -1,24 +1,14 @@
 # Roadmap: PodEdit
 
-## Overview
+## Milestones
 
-PodEdit transforms from empty repository to working podcast cut point editor through five dependency-ordered phases. Audio playback establishes the foundation, transcription integration provides the data, transcript display enables navigation, cut point management delivers core value, and export produces the final JSON output for downstream ffmpeg scripts.
+- ✅ **v1.0 MVP** - Phases 1-5 (shipped 2026-01-24)
+- 📋 **v2.0 In-Browser Audio Processing** - Phases 6-10 (planned)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Audio Playback Foundation** - Upload and stream audio files with reliable playback controls
-- [x] **Phase 2: Transcription Integration** - Generate and cache timestamped transcripts via API
-- [x] **Phase 3: Transcript Navigation** - Display transcript with click-to-jump and auto-scroll sync
-- [x] **Phase 4: Cut Point Management** - Mark start/end pairs with visual indication and editing
-- [x] **Phase 5: Export & Finalization** - Generate JSON cut list for ffmpeg processing
-
-## Phase Details
+<details>
+<summary>✅ v1.0 MVP (Phases 1-5) - SHIPPED 2026-01-24</summary>
 
 ### Phase 1: Audio Playback Foundation
 **Goal**: User can upload audio files and play them reliably with full playback controls
@@ -94,15 +84,100 @@ Plans:
 Plans:
 - [x] 05-01-PLAN.md — ExportService and Export button UI
 
+</details>
+
+## 📋 v2.0 In-Browser Audio Processing (Phases 6-10)
+
+**Milestone Goal:** Add browser-based audio processing to generate edited audio files directly, eliminating the need for external scripts.
+
+**Phase Numbering:**
+- Integer phases (6, 7, 8, 9, 10): Planned milestone work
+- Decimal phases (6.1, 6.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 6: Foundation & Configuration** - Configure development environment for FFmpeg.wasm with browser compatibility
+- [ ] **Phase 7: Core FFmpeg.wasm Processing** - Implement audio processing pipeline to apply cut regions
+- [ ] **Phase 8: Service Integration & Download** - Wire processing to existing services and enable file download
+- [ ] **Phase 9: Error Handling & Polish** - Add robust error handling, cancellation, and progress feedback
+- [ ] **Phase 10: UAT & Browser Compatibility** - Validate processing works across browsers and file sizes
+
+## Phase Details
+
+### Phase 6: Foundation & Configuration
+**Goal**: Development environment is configured to support FFmpeg.wasm with proper headers and browser compatibility detection
+**Depends on**: Phase 5 (v1.0 complete)
+**Requirements**: FFMPEG-01
+**Success Criteria** (what must be TRUE):
+  1. User can run the app with Vite dev server (migration from serve package complete)
+  2. User can open browser console and verify cross-origin isolation headers are active (COOP/COEP enabled)
+  3. User can load FFmpeg.wasm library in the browser without SharedArrayBuffer errors
+  4. User sees clear error message if browser does not support WebAssembly or SharedArrayBuffer
+  5. User sees file size warning if audio file exceeds 50 MB before attempting processing
+**Plans**: TBD
+
+### Phase 7: Core FFmpeg.wasm Processing
+**Goal**: Audio processing pipeline can apply cut regions to remove sections from audio files
+**Depends on**: Phase 6 (FFmpeg.wasm environment ready)
+**Requirements**: FFMPEG-02, PROC-01, PROC-02, PROC-03, PROC-04
+**Success Criteria** (what must be TRUE):
+  1. User can mark one cut region and trigger processing to generate audio file with that section removed
+  2. User can mark multiple cut regions and receive processed audio with all marked sections removed
+  3. User can process a 60-minute podcast file and receive output file without browser crash
+  4. User can verify output audio duration matches expected length (original duration minus total cut duration)
+  5. User can play processed audio and confirm cut boundaries are clean (no clicks or pops at edit points)
+**Plans**: TBD
+
+### Phase 8: Service Integration & Download
+**Goal**: Processing integrates with existing services to deliver downloadable edited audio files
+**Depends on**: Phase 7 (processing pipeline works)
+**Requirements**: EXPORT-03, EXPORT-04, EXPORT-05
+**Success Criteria** (what must be TRUE):
+  1. User can click "Export Edited Audio" button to trigger processing
+  2. User sees indeterminate progress indicator while processing executes
+  3. User receives browser download of processed audio file when processing completes
+  4. User sees suggested filename with format original_edited_timestamp.mp3
+  5. User can process same file multiple times without re-transcribing (cached transcript reused)
+**Plans**: TBD
+
+### Phase 9: Error Handling & Polish
+**Goal**: Processing failures are handled gracefully with clear error messages and user control
+**Depends on**: Phase 8 (download pipeline works)
+**Requirements**: (Enhances PROC-01 through EXPORT-05 with error handling)
+**Success Criteria** (what must be TRUE):
+  1. User sees clear error message if file size exceeds browser memory limits ("File too large: 150 MB, max 100 MB")
+  2. User can click cancel button to abort processing operation before completion
+  3. User sees estimated processing time before triggering processing ("This will take approximately 3-5 minutes")
+  4. User sees FFmpeg console logs in real-time to verify processing is progressing
+  5. User can recover from processing failure without refreshing page (error clears, can retry)
+**Plans**: TBD
+
+### Phase 10: UAT & Browser Compatibility
+**Goal**: Processing verified to work across browsers and file sizes with acceptable performance
+**Depends on**: Phase 9 (error handling complete)
+**Requirements**: (Validates all v2.0 requirements in production conditions)
+**Success Criteria** (what must be TRUE):
+  1. User can process 45-90 minute podcast files on Chrome desktop without errors
+  2. User can process files on Firefox and Edge browsers with same success as Chrome
+  3. User on iOS Safari sees single-thread fallback message and can still process files successfully
+  4. User can process multiple files in single session without memory leaks or performance degradation
+  5. User experiences processing time within expected range (3-6 minutes for 60-minute file on desktop)
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Audio Playback Foundation | 2/2 | Complete | 2026-01-22 |
-| 2. Transcription Integration | 2/2 | Complete | 2026-01-22 |
-| 3. Transcript Navigation | 1/1 | Complete | 2026-01-22 |
-| 4. Cut Point Management | 3/3 | Complete | 2026-01-23 |
-| 5. Export & Finalization | 1/1 | Complete | 2026-01-23 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Audio Playback Foundation | v1.0 | 2/2 | Complete | 2026-01-22 |
+| 2. Transcription Integration | v1.0 | 2/2 | Complete | 2026-01-22 |
+| 3. Transcript Navigation | v1.0 | 1/1 | Complete | 2026-01-22 |
+| 4. Cut Point Management | v1.0 | 3/3 | Complete | 2026-01-23 |
+| 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
+| 6. Foundation & Configuration | v2.0 | 0/TBD | Not started | - |
+| 7. Core FFmpeg.wasm Processing | v2.0 | 0/TBD | Not started | - |
+| 8. Service Integration & Download | v2.0 | 0/TBD | Not started | - |
+| 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |
+| 10. UAT & Browser Compatibility | v2.0 | 0/TBD | Not started | - |

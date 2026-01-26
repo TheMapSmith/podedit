@@ -129,22 +129,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUT-05 | Phase 4 (v1.0) | Complete |
 | EXPORT-01 | Phase 5 (v1.0) | Complete |
 | EXPORT-02 | Phase 5 (v1.0) | Complete |
-| FFMPEG-01 | TBD | Pending |
-| FFMPEG-02 | TBD | Pending |
-| PROC-01 | TBD | Pending |
-| PROC-02 | TBD | Pending |
-| PROC-03 | TBD | Pending |
-| PROC-04 | TBD | Pending |
-| EXPORT-03 | TBD | Pending |
-| EXPORT-04 | TBD | Pending |
-| EXPORT-05 | TBD | Pending |
+| FFMPEG-01 | Phase 6 (v2.0) | Pending |
+| FFMPEG-02 | Phase 7 (v2.0) | Pending |
+| PROC-01 | Phase 7 (v2.0) | Pending |
+| PROC-02 | Phase 7 (v2.0) | Pending |
+| PROC-03 | Phase 7 (v2.0) | Pending |
+| PROC-04 | Phase 7 (v2.0) | Pending |
+| EXPORT-03 | Phase 8 (v2.0) | Pending |
+| EXPORT-04 | Phase 8 (v2.0) | Pending |
+| EXPORT-05 | Phase 8 (v2.0) | Pending |
 
 **Coverage:**
 - v1.0 requirements: 20 total (all complete)
 - v2.0 requirements: 9 total
-- Mapped to phases: 20 (v1.0 only)
-- Unmapped: 9 (v2.0, awaiting roadmap)
+- Mapped to phases: 29 (20 v1.0 + 9 v2.0)
+- Unmapped: 0
+
+**v2.0 Coverage:**
+- Phase 6: FFMPEG-01 (1 requirement)
+- Phase 7: FFMPEG-02, PROC-01, PROC-02, PROC-03, PROC-04 (5 requirements)
+- Phase 8: EXPORT-03, EXPORT-04, EXPORT-05 (3 requirements)
+- Phase 9: Error handling enhancements (0 new requirements, enhances existing)
+- Phase 10: UAT validation (0 new requirements, validates all v2.0)
 
 ---
 *Requirements defined: 2026-01-22 (v1.0), 2026-01-26 (v2.0)*
-*Last updated: 2026-01-26 after v2.0 milestone initialization*
+*Last updated: 2026-01-26 after v2.0 roadmap creation*
