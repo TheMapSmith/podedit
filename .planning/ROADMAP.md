@@ -146,7 +146,10 @@ Plans:
   3. User receives browser download of processed audio file when processing completes
   4. User sees suggested filename with format original_edited_timestamp.mp3
   5. User can process same file multiple times without re-transcribing (cached transcript reused)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — Export audio button, processing integration, and download trigger
 
 ### Phase 9: Error Handling & Polish
 **Goal**: Processing failures are handled gracefully with clear error messages and user control
@@ -185,7 +188,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 4. Cut Point Management | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
 | 6. Foundation & Configuration | v2.0 | 2/2 | Complete | 2026-01-27 |
-| 7. Core FFmpeg.wasm Processing | v2.0 | 0/2 | Not started | - |
-| 8. Service Integration & Download | v2.0 | 0/TBD | Not started | - |
+| 7. Core FFmpeg.wasm Processing | v2.0 | 2/2 | Complete | 2026-01-27 |
+| 8. Service Integration & Download | v2.0 | 0/1 | Not started | - |
 | 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |
 | 10. UAT & Browser Compatibility | v2.0 | 0/TBD | Not started | - |
