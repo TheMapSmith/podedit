@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 ## Current Position
 
 Phase: 7 of 10 (Core FFmpeg.wasm Processing)
-Plan: 1 of TBD
+Plan: 2 of TBD
 Status: In progress
-Last activity: 2026-01-27 — Completed 07-01-PLAN.md
+Last activity: 2026-01-27 — Completed 07-02-PLAN.md
 
-Progress: [█████▓░░░░] 62% (v1.0 complete, Phase 6 complete, Phase 7 in progress)
+Progress: [█████▓░░░░] 64% (v1.0 complete, Phase 6 complete, Phase 7 in progress)
 
 ## Performance Metrics
 
 **Velocity (All plans):**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: 2.3 minutes
-- Total execution time: 0.36 hours
+- Total execution time: 0.41 hours
 
 **By Phase:**
 
@@ -33,7 +33,7 @@ Progress: [█████▓░░░░] 62% (v1.0 complete, Phase 6 complete,
 | 04-cut-point-management | 3/3 | 4min | 1min |
 | 05-export-finalization | 1/1 | 2min | 2min |
 | 06-foundation-configuration | 2/2 | 6min | 3min |
-| 07-core-ffmpeg-wasm-processing | 1/TBD | 1min | 1min |
+| 07-core-ffmpeg-wasm-processing | 2/TBD | 4min | 2min |
 
 **v2.0 Phases:**
 
@@ -46,7 +46,7 @@ Progress: [█████▓░░░░] 62% (v1.0 complete, Phase 6 complete,
 | 10. UAT & Browser Compatibility | 0/TBD | Not started |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (1min), 05-01 (2min), 06-01 (3min), 06-02 (3min), 07-01 (1min)
+- Last 5 plans: 05-01 (2min), 06-01 (3min), 06-02 (3min), 07-01 (1min), 07-02 (3min)
 - Trend: Consistently fast (1-3 minutes per plan)
 
 ## Accumulated Context
@@ -70,6 +70,10 @@ Recent decisions affecting v2.0 work:
 - **filter_complex approach for cut processing (07-01):** Extract KEEP segments (inverse of cuts) and concatenate with atrim/concat filters - more efficient than multiple temp files
 - **asetpts=PTS-STARTPTS after atrim (07-01):** Timestamp reset critical for seamless concatenation, prevents audio gaps/overlaps
 - **Merge overlapping/adjacent cuts (07-01):** Prevents zero-duration KEEP segments, simplifies filter command generation
+- **Finally block cleanup pattern (07-02):** Virtual filesystem cleanup guaranteed even on error - prevents memory leaks in browser
+- **Progress from FFmpeg time= logs (07-02):** Parse time=HH:MM:SS.ms from logs for accurate progress (15-90% range during processing)
+- **10-minute processing timeout (07-02):** Default timeout balances patience (60-min podcast = 3-6 min) vs resource constraints
+- **fileTracker object pattern (07-02):** Track inputWritten/outputWritten flags for safe cleanup - only delete files that were written
 
 ### Pending Todos
 
@@ -85,7 +89,7 @@ None yet.
 
 **Phase 7 risks:**
 - ✅ FFmpeg command construction (07-01 complete) - filter_complex generation working with comprehensive edge case handling
-- Memory cleanup patterns must be implemented from start to prevent leaks (next plan)
+- ✅ Memory cleanup patterns (07-02 complete) - finally block guarantees virtual filesystem cleanup, prevents leaks
 
 **Phase 10 unknowns:**
 - iOS Safari performance with single-thread fallback (likely 2x slower = 6-12 min for 60-min podcast)
@@ -94,9 +98,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 07-01-PLAN.md (AudioProcessingService with FFmpeg filter generation)
+Stopped at: Completed 07-02-PLAN.md (FFmpeg file I/O and processing execution)
 Resume file: None
-Next: Continue Phase 7 (FFmpeg execution and memory management)
+Next: Continue Phase 7 (Service integration and browser testing)
 
 ---
 
@@ -154,6 +158,10 @@ All 5 phases complete - PodEdit v1.0 milestone achieved 2026-01-24
 - Cut region to KEEP segment conversion with edge case handling
 - Overlapping/adjacent cut merging for optimized filter chains
 - Expected output duration calculation for verification
+- Complete processing pipeline: write → exec → read → cleanup
+- Progress callbacks with FFmpeg time= log parsing
+- Timeout protection (10-minute default)
+- Virtual filesystem cleanup guaranteed via finally block
 
 **Phase 8 - Service Integration & Download: NOT STARTED**
 
