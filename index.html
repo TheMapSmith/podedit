@@ -566,6 +566,36 @@
     .transcript-history.empty {
       display: none;
     }
+
+    .compat-warning {
+      margin: 15px 0;
+      padding: 12px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      color: #856404;
+      font-size: 14px;
+    }
+
+    .compat-error {
+      margin: 15px 0;
+      padding: 12px;
+      background: #f8d7da;
+      border: 1px solid #dc3545;
+      border-radius: 4px;
+      color: #721c24;
+      font-size: 14px;
+    }
+
+    .processing-status {
+      margin: 15px 0;
+      padding: 12px;
+      background: #e7f3ff;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      color: #004085;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -583,6 +613,10 @@
 
     <div id="file-info" class="hidden"></div>
     <div id="error"></div>
+
+    <div id="compat-messages"></div>
+    <div id="processing-status" class="processing-status" style="display: none;"></div>
+    <button id="test-ffmpeg-btn" style="margin-top: 10px;">Test FFmpeg Loading</button>
 
     <div id="player-controls" class="player-controls hidden">
       <div class="controls-row">
@@ -642,7 +676,8 @@
     import TranscriptController from './src/controllers/transcriptController.js';
     import CutController from './src/controllers/cutController.js';
     import ExportService from './src/services/exportService.js';
-    import { validateAudioFile } from './src/services/fileValidator.js';
+    import BrowserCompatibility from './src/services/browserCompatibility.js';
+    import { validateAudioFile, validateForProcessing } from './src/services/fileValidator.js';
     import { formatFileSize } from './src/utils/timeFormat.js';
 
     // DOM element references
@@ -669,12 +704,46 @@
       cutList: document.getElementById('cut-list'),
       exportBtn: document.getElementById('export-btn'),
       transcriptHistory: document.getElementById('transcript-history'),
-      historyList: document.getElementById('history-list')
+      historyList: document.getElementById('history-list'),
+      compatMessages: document.getElementById('compat-messages'),
+      processingStatus: document.getElementById('processing-status'),
+      testFfmpegBtn: document.getElementById('test-ffmpeg-btn')
     };
 
     // Initialize AudioService and PlayerController
     const audioService = new AudioService();
     const playerController = new PlayerController(audioService, elements);
+
+    // Initialize BrowserCompatibility
+    const browserCompat = new BrowserCompatibility();
+
+    // Check compatibility on page load
+    function checkBrowserCompatibility() {
+      const result = browserCompat.checkCompatibility();
+      const container = elements.compatMessages;
+      container.innerHTML = '';
+
+      // Show errors (blocking)
+      result.errors.forEach(error => {
+        const div = document.createElement('div');
+        div.className = 'compat-error';
+        div.textContent = error;
+        container.appendChild(div);
+      });
+
+      // Show warnings (informational)
+      result.warnings.forEach(warning => {
+        const div = document.createElement('div');
+        div.className = 'compat-warning';
+        div.textContent = warning;
+        container.appendChild(div);
+      });
+
+      return result.supported;
+    }
+
+    // Run compatibility check on page load
+    const isCompatible = checkBrowserCompatibility();
 
     // Initialize TranscriptionService and TranscriptController
     // For development: prompt for API key or use stored value
@@ -793,6 +862,28 @@
     // Initialize transcript history on page load
     loadTranscriptHistory();
 
+    // Test FFmpeg loading button
+    elements.testFfmpegBtn.addEventListener('click', async () => {
+      const statusDiv = elements.processingStatus;
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = 'Loading FFmpeg... (this may take 10-30 seconds on first load)';
+
+      try {
+        await browserCompat.loadFFmpeg((progress) => {
+          statusDiv.textContent = `Loading FFmpeg: ${progress.stage} (${progress.progress}%)`;
+        });
+        statusDiv.textContent = 'FFmpeg loaded successfully! Ready for audio processing.';
+        statusDiv.style.background = '#d4edda';
+        statusDiv.style.borderColor = '#28a745';
+        statusDiv.style.color = '#155724';
+      } catch (error) {
+        statusDiv.textContent = `Failed to load FFmpeg: ${error.message}`;
+        statusDiv.style.background = '#f8d7da';
+        statusDiv.style.borderColor = '#dc3545';
+        statusDiv.style.color = '#721c24';
+      }
+    });
+
     // File input change handler
     elements.fileInput.addEventListener('change', async (event) => {
       const file = event.target.files[0];
@@ -809,6 +900,18 @@
         elements.fileInfo.classList.add('hidden');
         elements.playerControls.classList.add('hidden');
         return;
+      }
+
+      // Check processing limits (warning only at this stage)
+      const processingValidation = validateForProcessing(file);
+      elements.compatMessages.innerHTML = ''; // Clear previous warnings
+      if (processingValidation.warnings.length > 0) {
+        processingValidation.warnings.forEach(warning => {
+          const div = document.createElement('div');
+          div.className = 'compat-warning';
+          div.textContent = warning;
+          elements.compatMessages.appendChild(div);
+        });
       }
 
       try {
