@@ -130,7 +130,11 @@ Plans:
   3. User can process a 60-minute podcast file and receive output file without browser crash
   4. User can verify output audio duration matches expected length (original duration minus total cut duration)
   5. User can play processed audio and confirm cut boundaries are clean (no clicks or pops at edit points)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — AudioProcessingService with FFmpeg filter command generation
+- [ ] 07-02-PLAN.md — File I/O, processing execution, and memory cleanup
 
 ### Phase 8: Service Integration & Download
 **Goal**: Processing integrates with existing services to deliver downloadable edited audio files
@@ -181,7 +185,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 4. Cut Point Management | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
 | 6. Foundation & Configuration | v2.0 | 2/2 | Complete | 2026-01-27 |
-| 7. Core FFmpeg.wasm Processing | v2.0 | 0/TBD | Not started | - |
+| 7. Core FFmpeg.wasm Processing | v2.0 | 0/2 | Not started | - |
 | 8. Service Integration & Download | v2.0 | 0/TBD | Not started | - |
 | 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |
 | 10. UAT & Browser Compatibility | v2.0 | 0/TBD | Not started | - |
