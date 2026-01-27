@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 ## Current Position
 
 Phase: 7 of 10 (Core FFmpeg.wasm Processing)
-Plan: Ready to plan Phase 7
-Status: Not started
-Last activity: 2026-01-27 — Phase 6 complete
+Plan: 1 of TBD
+Status: In progress
+Last activity: 2026-01-27 — Completed 07-01-PLAN.md
 
-Progress: [█████▓░░░░] 60% (v1.0 complete, Phase 6 complete)
+Progress: [█████▓░░░░] 62% (v1.0 complete, Phase 6 complete, Phase 7 in progress)
 
 ## Performance Metrics
 
 **Velocity (All plans):**
-- Total plans completed: 11
-- Average duration: 2.5 minutes
-- Total execution time: 0.33 hours
+- Total plans completed: 12
+- Average duration: 2.3 minutes
+- Total execution time: 0.36 hours
 
 **By Phase:**
 
@@ -33,19 +33,20 @@ Progress: [█████▓░░░░] 60% (v1.0 complete, Phase 6 complete)
 | 04-cut-point-management | 3/3 | 4min | 1min |
 | 05-export-finalization | 1/1 | 2min | 2min |
 | 06-foundation-configuration | 2/2 | 6min | 3min |
+| 07-core-ffmpeg-wasm-processing | 1/TBD | 1min | 1min |
 
 **v2.0 Phases:**
 
 | Phase | Plans | Status |
 |-------|-------|--------|
 | 6. Foundation & Configuration | 2/2 | Complete ✓ |
-| 7. Core FFmpeg.wasm Processing | 0/TBD | Not started |
+| 7. Core FFmpeg.wasm Processing | 1/TBD | In progress |
 | 8. Service Integration & Download | 0/TBD | Not started |
 | 9. Error Handling & Polish | 0/TBD | Not started |
 | 10. UAT & Browser Compatibility | 0/TBD | Not started |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (2min), 04-03 (1min), 05-01 (2min), 06-01 (3min), 06-02 (3min)
+- Last 5 plans: 04-03 (1min), 05-01 (2min), 06-01 (3min), 06-02 (3min), 07-01 (1min)
 - Trend: Consistently fast (1-3 minutes per plan)
 
 ## Accumulated Context
@@ -66,6 +67,9 @@ Recent decisions affecting v2.0 work:
 - **FFmpeg.wasm lazy loads on-demand (06-02):** Dynamic import prevents 20MB+ download on page load, progress callbacks enable loading UI
 - **50 MB soft warning, 100 MB hard limit (06-02):** Two-level validation prevents browser memory exhaustion while allowing moderate file sizes
 - **iOS Safari detection upfront (06-02):** Explicit warning about 2x slower single-thread mode improves UX vs silent degradation
+- **filter_complex approach for cut processing (07-01):** Extract KEEP segments (inverse of cuts) and concatenate with atrim/concat filters - more efficient than multiple temp files
+- **asetpts=PTS-STARTPTS after atrim (07-01):** Timestamp reset critical for seamless concatenation, prevents audio gaps/overlaps
+- **Merge overlapping/adjacent cuts (07-01):** Prevents zero-duration KEEP segments, simplifies filter command generation
 
 ### Pending Todos
 
@@ -80,8 +84,8 @@ None yet.
 - ✅ File size validation (06-02) - 50 MB warning, 100 MB hard limit prevents crashes
 
 **Phase 7 risks:**
-- FFmpeg command construction is high-risk (commands differ between native and browser)
-- Memory cleanup patterns must be implemented from start to prevent leaks
+- ✅ FFmpeg command construction (07-01 complete) - filter_complex generation working with comprehensive edge case handling
+- Memory cleanup patterns must be implemented from start to prevent leaks (next plan)
 
 **Phase 10 unknowns:**
 - iOS Safari performance with single-thread fallback (likely 2x slower = 6-12 min for 60-min podcast)
@@ -90,9 +94,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 06-02-PLAN.md (Browser compatibility & FFmpeg.wasm lazy loading)
+Stopped at: Completed 07-01-PLAN.md (AudioProcessingService with FFmpeg filter generation)
 Resume file: None
-Next: Plan Phase 7 (Core FFmpeg.wasm Processing)
+Next: Continue Phase 7 (FFmpeg execution and memory management)
 
 ---
 
@@ -145,7 +149,11 @@ All 5 phases complete - PodEdit v1.0 milestone achieved 2026-01-24
 - File size validation: 50 MB warning, 100 MB hard limit
 - iOS Safari detection with single-thread mode warning
 
-**Phase 7 - Core FFmpeg.wasm Processing: NOT STARTED**
+**Phase 7 - Core FFmpeg.wasm Processing: IN PROGRESS**
+- AudioProcessingService with filter_complex command generation
+- Cut region to KEEP segment conversion with edge case handling
+- Overlapping/adjacent cut merging for optimized filter chains
+- Expected output duration calculation for verification
 
 **Phase 8 - Service Integration & Download: NOT STARTED**
 
