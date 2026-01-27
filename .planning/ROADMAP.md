@@ -97,7 +97,7 @@ Plans:
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 6: Foundation & Configuration** - Configure development environment for FFmpeg.wasm with browser compatibility
-- [ ] **Phase 7: Core FFmpeg.wasm Processing** - Implement audio processing pipeline to apply cut regions
+- [x] **Phase 7: Core FFmpeg.wasm Processing** - Implement audio processing pipeline to apply cut regions
 - [ ] **Phase 8: Service Integration & Download** - Wire processing to existing services and enable file download
 - [ ] **Phase 9: Error Handling & Polish** - Add robust error handling, cancellation, and progress feedback
 - [ ] **Phase 10: UAT & Browser Compatibility** - Validate processing works across browsers and file sizes
@@ -133,8 +133,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — AudioProcessingService with FFmpeg filter command generation
-- [ ] 07-02-PLAN.md — File I/O, processing execution, and memory cleanup
+- [x] 07-01-PLAN.md — AudioProcessingService with FFmpeg filter command generation
+- [x] 07-02-PLAN.md — File I/O, processing execution, and memory cleanup
 
 ### Phase 8: Service Integration & Download
 **Goal**: Processing integrates with existing services to deliver downloadable edited audio files

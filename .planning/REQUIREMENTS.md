@@ -49,14 +49,14 @@ Requirements for in-browser audio processing milestone.
 ### FFmpeg Integration
 
 - [ ] **FFMPEG-01**: System loads FFmpeg.wasm library on demand when user triggers processing
-- [ ] **FFMPEG-02**: System integrates FFmpeg.wasm with existing audio playback architecture
+- [x] **FFMPEG-02**: System integrates FFmpeg.wasm with existing audio playback architecture
 
 ### Audio Processing
 
-- [ ] **PROC-01**: System applies marked cut regions to remove sections from audio file
-- [ ] **PROC-02**: System generates processed audio file in browser memory
-- [ ] **PROC-03**: System constructs FFmpeg filter commands from cut point data
-- [ ] **PROC-04**: System handles 45-90 minute podcast files during processing
+- [x] **PROC-01**: System applies marked cut regions to remove sections from audio file
+- [x] **PROC-02**: System generates processed audio file in browser memory
+- [x] **PROC-03**: System constructs FFmpeg filter commands from cut point data
+- [x] **PROC-04**: System handles 45-90 minute podcast files during processing
 
 ### Export Enhancement
 
@@ -130,11 +130,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXPORT-01 | Phase 5 (v1.0) | Complete |
 | EXPORT-02 | Phase 5 (v1.0) | Complete |
 | FFMPEG-01 | Phase 6 (v2.0) | Complete |
-| FFMPEG-02 | Phase 7 (v2.0) | Pending |
-| PROC-01 | Phase 7 (v2.0) | Pending |
-| PROC-02 | Phase 7 (v2.0) | Pending |
-| PROC-03 | Phase 7 (v2.0) | Pending |
-| PROC-04 | Phase 7 (v2.0) | Pending |
+| FFMPEG-02 | Phase 7 (v2.0) | Complete |
+| PROC-01 | Phase 7 (v2.0) | Complete |
+| PROC-02 | Phase 7 (v2.0) | Complete |
+| PROC-03 | Phase 7 (v2.0) | Complete |
+| PROC-04 | Phase 7 (v2.0) | Complete |
 | EXPORT-03 | Phase 8 (v2.0) | Pending |
 | EXPORT-04 | Phase 8 (v2.0) | Pending |
 | EXPORT-05 | Phase 8 (v2.0) | Pending |
