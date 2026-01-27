@@ -14,6 +14,10 @@ export const SUPPORTED_AUDIO_FORMATS = {
 // Maximum file size: 500MB (reasonable max for 90-min podcast)
 export const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
+// Processing size limits (stricter than upload limits)
+export const MAX_PROCESSING_SIZE = 50 * 1024 * 1024; // 50 MB warning threshold
+export const MAX_PROCESSING_SIZE_HARD = 100 * 1024 * 1024; // 100 MB hard limit
+
 /**
  * Validate audio file format and size
  * @param {File} file - File object from input
@@ -74,4 +78,37 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Validate file for audio processing (stricter than upload validation)
+ * @param {File} file
+ * @returns {{ valid: boolean, errors: string[], warnings: string[], fileInfo: object }}
+ */
+export function validateForProcessing(file) {
+  // First run standard validation
+  const uploadValidation = validateAudioFile(file);
+  if (!uploadValidation.valid) {
+    return uploadValidation;
+  }
+
+  const warnings = [];
+  const errors = [];
+
+  // Soft warning at 50 MB
+  if (file.size > MAX_PROCESSING_SIZE) {
+    warnings.push(`File is ${formatFileSize(file.size)}. Processing large files may take several minutes and use significant memory.`);
+  }
+
+  // Hard limit at 100 MB
+  if (file.size > MAX_PROCESSING_SIZE_HARD) {
+    errors.push(`File is ${formatFileSize(file.size)} which exceeds the ${formatFileSize(MAX_PROCESSING_SIZE_HARD)} processing limit. Browser memory constraints prevent processing very large files.`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    fileInfo: uploadValidation.fileInfo
+  };
 }
