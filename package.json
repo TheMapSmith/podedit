@@ -2,11 +2,21 @@
   "name": "podedit",
   "version": "1.0.0",
   "description": "Local web app for marking cut points in podcast audio files",
+  "type": "module",
   "scripts": {
-    "start": "serve .",
-    "dev": "serve ."
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": ["podcast", "audio", "editing"],
+  "keywords": [
+    "podcast",
+    "audio",
+    "editing"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^7.3.1"
+  }
 }
