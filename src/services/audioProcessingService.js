@@ -193,6 +193,131 @@ class AudioProcessingService {
 
     return totalDuration - totalCutDuration;
   }
+
+  /**
+   * Process audio file with cuts
+   * @param {File} file - Input audio file
+   * @param {Array<CutRegion>} cutRegions - Array of cut regions to remove
+   * @param {number} totalDuration - Total audio duration in seconds
+   * @param {function} onProgress - Optional progress callback
+   * @returns {Promise<{data: Uint8Array, mimeType: string, filename: string, expectedDuration: number}>}
+   */
+  async processAudio(file, cutRegions, totalDuration, onProgress = null) {
+    // Validate inputs
+    if (!cutRegions || cutRegions.length === 0) {
+      throw new Error('No cuts to apply');
+    }
+
+    const completeCuts = cutRegions.filter(cut => cut.isComplete());
+    if (completeCuts.length === 0) {
+      throw new Error('No cuts to apply');
+    }
+
+    if (!totalDuration || totalDuration <= 0) {
+      throw new Error('Invalid total duration');
+    }
+
+    let inputFilename = null;
+    let outputFilename = null;
+
+    try {
+      // Ensure FFmpeg loaded
+      await this.ensureFFmpegLoaded(onProgress);
+
+      // Convert File to Uint8Array
+      const inputData = new Uint8Array(await file.arrayBuffer());
+
+      // Determine input filename from file.name or default
+      inputFilename = file.name || 'input.mp3';
+
+      // Write input file to virtual filesystem
+      await this.ffmpeg.writeFile(inputFilename, inputData);
+
+      if (onProgress) {
+        onProgress({ stage: 'processing', progress: 10 });
+      }
+
+      // Build FFmpeg command
+      const { filterComplex, useDirectCopy } = this.buildFilterCommand(cutRegions, totalDuration);
+
+      if (useDirectCopy) {
+        throw new Error('No cuts to apply - use direct copy');
+      }
+
+      // Determine output filename (preserve format)
+      const extension = this._getFileExtension(inputFilename);
+      outputFilename = `output.${extension}`;
+
+      // Execute FFmpeg
+      const args = [
+        '-i', inputFilename,
+        '-filter_complex', filterComplex,
+        '-map', '[out]',
+        outputFilename
+      ];
+
+      await this.ffmpeg.exec(args);
+
+      if (onProgress) {
+        onProgress({ stage: 'processing', progress: 80 });
+      }
+
+      // Read output file
+      const outputData = await this.ffmpeg.readFile(outputFilename);
+
+      // Calculate expected duration
+      const expectedDuration = this.getExpectedOutputDuration(cutRegions, totalDuration);
+
+      // Cleanup virtual filesystem
+      try {
+        if (inputFilename) {
+          await this.ffmpeg.deleteFile(inputFilename);
+        }
+        if (outputFilename) {
+          await this.ffmpeg.deleteFile(outputFilename);
+        }
+      } catch (cleanupError) {
+        // Don't fail on cleanup errors
+        console.warn('Cleanup error:', cleanupError);
+      }
+
+      if (onProgress) {
+        onProgress({ stage: 'complete', progress: 100 });
+      }
+
+      return {
+        data: outputData,
+        mimeType: file.type,
+        filename: outputFilename,
+        expectedDuration
+      };
+    } catch (error) {
+      // Attempt cleanup even on error
+      try {
+        if (inputFilename) {
+          await this.ffmpeg.deleteFile(inputFilename);
+        }
+        if (outputFilename) {
+          await this.ffmpeg.deleteFile(outputFilename);
+        }
+      } catch (cleanupError) {
+        // Ignore cleanup errors during error handling
+      }
+
+      throw new Error(`Audio processing failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract file extension from filename
+   * @private
+   * @param {string} filename - Input filename
+   * @returns {string} - File extension without dot
+   */
+  _getFileExtension(filename) {
+    const match = filename.match(/\.([^.]+)$/);
+    return match ? match[1] : 'mp3';
+  }
 }
 
 export default AudioProcessingService;
