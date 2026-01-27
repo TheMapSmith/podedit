@@ -2,13 +2,13 @@
 
 ## Milestones
 
-- ✅ **v1.0 MVP** - Phases 1-5 (shipped 2026-01-24)
-- 📋 **v2.0 In-Browser Audio Processing** - Phases 6-10 (planned)
+- **v1.0 MVP** - Phases 1-5 (shipped 2026-01-24)
+- **v2.0 In-Browser Audio Processing** - Phases 6-10 (planned)
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 MVP (Phases 1-5) - SHIPPED 2026-01-24</summary>
+<summary>v1.0 MVP (Phases 1-5) - SHIPPED 2026-01-24</summary>
 
 ### Phase 1: Audio Playback Foundation
 **Goal**: User can upload audio files and play them reliably with full playback controls
@@ -86,7 +86,7 @@ Plans:
 
 </details>
 
-## 📋 v2.0 In-Browser Audio Processing (Phases 6-10)
+## v2.0 In-Browser Audio Processing (Phases 6-10)
 
 **Milestone Goal:** Add browser-based audio processing to generate edited audio files directly, eliminating the need for external scripts.
 
@@ -114,7 +114,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can load FFmpeg.wasm library in the browser without SharedArrayBuffer errors
   4. User sees clear error message if browser does not support WebAssembly or SharedArrayBuffer
   5. User sees file size warning if audio file exceeds 50 MB before attempting processing
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Vite migration with COOP/COEP headers
+- [ ] 06-02-PLAN.md — Browser compatibility detection and FFmpeg.wasm lazy loading
 
 ### Phase 7: Core FFmpeg.wasm Processing
 **Goal**: Audio processing pipeline can apply cut regions to remove sections from audio files
@@ -167,7 +171,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -176,7 +180,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Transcript Navigation | v1.0 | 1/1 | Complete | 2026-01-22 |
 | 4. Cut Point Management | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
-| 6. Foundation & Configuration | v2.0 | 0/TBD | Not started | - |
+| 6. Foundation & Configuration | v2.0 | 0/2 | Not started | - |
 | 7. Core FFmpeg.wasm Processing | v2.0 | 0/TBD | Not started | - |
 | 8. Service Integration & Download | v2.0 | 0/TBD | Not started | - |
 | 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |
