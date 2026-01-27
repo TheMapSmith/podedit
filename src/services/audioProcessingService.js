@@ -6,10 +6,20 @@ class AudioProcessingService {
   /**
    * @param {BrowserCompatibility} browserCompatibility - Browser compatibility service
    */
-  constructor(browserCompatibility) {
+  constructor(browserCompatibility, options = {}) {
     this.browserCompatibility = browserCompatibility;
     this.ffmpeg = null;
     this.lastLogs = []; // Store recent FFmpeg logs for debugging
+    this.timeout = options.timeout || 600000; // Default 10 minutes
+    this._isProcessing = false;
+  }
+
+  /**
+   * Check if currently processing
+   * @returns {boolean}
+   */
+  isProcessing() {
+    return this._isProcessing;
   }
 
   /**
@@ -22,7 +32,13 @@ class AudioProcessingService {
       return this.ffmpeg;
     }
 
-    this.ffmpeg = await this.browserCompatibility.loadFFmpeg(onProgress);
+    // Wrap BrowserCompatibility progress to remap to 0-10% range
+    const wrappedProgress = onProgress ? (bcProgress) => {
+      const remappedProgress = Math.floor(bcProgress.progress / 10);
+      onProgress({ stage: 'loading', progress: remappedProgress });
+    } : null;
+
+    this.ffmpeg = await this.browserCompatibility.loadFFmpeg(wrappedProgress);
     return this.ffmpeg;
   }
 
@@ -235,85 +251,40 @@ class AudioProcessingService {
       throw new Error('Invalid total duration');
     }
 
-    let inputFilename = null;
-    let outputFilename = null;
-    let inputWritten = false;
-    let outputWritten = false;
+    this._isProcessing = true;
+    const fileTracker = {
+      inputFilename: null,
+      outputFilename: null,
+      inputWritten: false,
+      outputWritten: false
+    };
+    let timeoutId = null;
 
     try {
-      // Ensure FFmpeg loaded
-      await this.ensureFFmpegLoaded(onProgress);
-
-      // Setup FFmpeg log capture
-      this.lastLogs = [];
-      this.ffmpeg.on('log', ({ message }) => {
-        this.lastLogs.push(message);
-        if (this.lastLogs.length > 50) {
-          this.lastLogs.shift(); // Keep only last 50 messages
-        }
+      // Setup timeout protection
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`Processing timeout after ${this.timeout / 1000} seconds`));
+        }, this.timeout);
       });
 
-      // Convert File to Uint8Array
-      const inputData = new Uint8Array(await file.arrayBuffer());
+      // Process with timeout wrapper
+      const result = await Promise.race([
+        this._processAudioInternal(file, cutRegions, totalDuration, onProgress, fileTracker),
+        timeoutPromise
+      ]);
 
-      // Determine input filename from file.name or default
-      inputFilename = file.name || 'input.mp3';
-
-      // Write input file to virtual filesystem
-      await this.ffmpeg.writeFile(inputFilename, inputData);
-      inputWritten = true;
-
-      if (onProgress) {
-        onProgress({ stage: 'processing', progress: 10 });
-      }
-
-      // Build FFmpeg command
-      const { filterComplex, useDirectCopy } = this.buildFilterCommand(cutRegions, totalDuration);
-
-      if (useDirectCopy) {
-        throw new Error('No cuts to apply - use direct copy');
-      }
-
-      // Determine output filename (preserve format)
-      const extension = this._getFileExtension(inputFilename);
-      outputFilename = `output.${extension}`;
-
-      // Execute FFmpeg
-      const args = [
-        '-i', inputFilename,
-        '-filter_complex', filterComplex,
-        '-map', '[out]',
-        outputFilename
-      ];
-
-      await this.ffmpeg.exec(args);
-      outputWritten = true;
-
-      if (onProgress) {
-        onProgress({ stage: 'processing', progress: 80 });
-      }
-
-      // Read output file
-      const outputData = await this.ffmpeg.readFile(outputFilename);
-
-      // Calculate expected duration
-      const expectedDuration = this.getExpectedOutputDuration(cutRegions, totalDuration);
-
-      if (onProgress) {
-        onProgress({ stage: 'complete', progress: 100 });
-      }
-
-      return {
-        data: outputData,
-        mimeType: file.type,
-        filename: outputFilename,
-        expectedDuration
-      };
+      clearTimeout(timeoutId);
+      return result;
     } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+
       // Map FFmpeg errors to user-friendly messages
       let userMessage = 'Audio processing failed: ';
 
-      if (error.message.includes('Exit code: 1') || error.message.includes('Invalid')) {
+      if (error.message.includes('timeout')) {
+        userMessage += `Operation timed out. Files larger than 50 MB may take several minutes.`;
+      } else if (error.message.includes('Exit code: 1') || error.message.includes('Invalid')) {
         userMessage += 'The audio file may be corrupted or in an unsupported format.';
       } else if (error.message.includes('memory') || error.message.includes('Memory')) {
         userMessage += 'Out of memory. Try processing a smaller file.';
@@ -328,23 +299,124 @@ class AudioProcessingService {
 
       throw new Error(userMessage);
     } finally {
+      this._isProcessing = false;
+
       // Cleanup guarantee - only delete files that were written
       try {
-        if (inputWritten && inputFilename) {
-          await this.ffmpeg.deleteFile(inputFilename);
+        if (fileTracker.inputWritten && fileTracker.inputFilename) {
+          await this.ffmpeg.deleteFile(fileTracker.inputFilename);
         }
       } catch (cleanupError) {
         console.warn('Cleanup error (input):', cleanupError);
       }
 
       try {
-        if (outputWritten && outputFilename) {
-          await this.ffmpeg.deleteFile(outputFilename);
+        if (fileTracker.outputWritten && fileTracker.outputFilename) {
+          await this.ffmpeg.deleteFile(fileTracker.outputFilename);
         }
       } catch (cleanupError) {
         console.warn('Cleanup error (output):', cleanupError);
       }
     }
+  }
+
+  /**
+   * Internal processing method with progress tracking
+   * @private
+   */
+  async _processAudioInternal(file, cutRegions, totalDuration, onProgress, fileTracker) {
+    // Ensure FFmpeg loaded (0-10% progress)
+    await this.ensureFFmpegLoaded(onProgress);
+
+    // Setup FFmpeg log capture with progress parsing
+    this.lastLogs = [];
+    this.ffmpeg.on('log', ({ message }) => {
+      this.lastLogs.push(message);
+      if (this.lastLogs.length > 50) {
+        this.lastLogs.shift(); // Keep only last 50 messages
+      }
+
+      // Parse time= progress from FFmpeg logs
+      // Format: time=00:01:23.45
+      const timeMatch = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
+      if (timeMatch && onProgress) {
+        const hours = parseInt(timeMatch[1]);
+        const minutes = parseInt(timeMatch[2]);
+        const seconds = parseFloat(timeMatch[3]);
+        const currentTime = hours * 3600 + minutes * 60 + seconds;
+
+        // Calculate progress percentage (15-90% range for processing)
+        const progressPercent = Math.min((currentTime / totalDuration) * 100, 100);
+        const remappedProgress = 15 + Math.floor(progressPercent * 0.75); // Map to 15-90%
+
+        onProgress({
+          stage: 'processing',
+          progress: remappedProgress,
+          time: currentTime
+        });
+      }
+    });
+
+    // Convert File to Uint8Array
+    const inputData = new Uint8Array(await file.arrayBuffer());
+
+    // Determine input filename from file.name or default
+    fileTracker.inputFilename = file.name || 'input.mp3';
+
+    // Write input file to virtual filesystem (10-15% progress)
+    await this.ffmpeg.writeFile(fileTracker.inputFilename, inputData);
+    fileTracker.inputWritten = true;
+
+    if (onProgress) {
+      onProgress({ stage: 'processing', progress: 15 });
+    }
+
+    // Build FFmpeg command
+    const { filterComplex, useDirectCopy } = this.buildFilterCommand(cutRegions, totalDuration);
+
+    if (useDirectCopy) {
+      throw new Error('No cuts to apply - use direct copy');
+    }
+
+    // Determine output filename (preserve format)
+    const extension = this._getFileExtension(fileTracker.inputFilename);
+    fileTracker.outputFilename = `output.${extension}`;
+
+    // Execute FFmpeg (15-90% progress tracked via logs)
+    const args = [
+      '-i', fileTracker.inputFilename,
+      '-filter_complex', filterComplex,
+      '-map', '[out]',
+      fileTracker.outputFilename
+    ];
+
+    await this.ffmpeg.exec(args);
+    fileTracker.outputWritten = true;
+
+    if (onProgress) {
+      onProgress({ stage: 'processing', progress: 90 });
+    }
+
+    // Read output file (90-95% progress)
+    const outputData = await this.ffmpeg.readFile(fileTracker.outputFilename);
+
+    if (onProgress) {
+      onProgress({ stage: 'processing', progress: 95 });
+    }
+
+    // Calculate expected duration
+    const expectedDuration = this.getExpectedOutputDuration(cutRegions, totalDuration);
+
+    if (onProgress) {
+      onProgress({ stage: 'complete', progress: 100 });
+    }
+
+    return {
+      data: outputData,
+      mimeType: file.type,
+      filename: fileTracker.outputFilename,
+      expectedDuration
+    };
   }
 
   /**
