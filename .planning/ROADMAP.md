@@ -96,7 +96,7 @@ Plans:
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 6: Foundation & Configuration** - Configure development environment for FFmpeg.wasm with browser compatibility
+- [x] **Phase 6: Foundation & Configuration** - Configure development environment for FFmpeg.wasm with browser compatibility
 - [ ] **Phase 7: Core FFmpeg.wasm Processing** - Implement audio processing pipeline to apply cut regions
 - [ ] **Phase 8: Service Integration & Download** - Wire processing to existing services and enable file download
 - [ ] **Phase 9: Error Handling & Polish** - Add robust error handling, cancellation, and progress feedback
@@ -117,8 +117,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Vite migration with COOP/COEP headers
-- [ ] 06-02-PLAN.md — Browser compatibility detection and FFmpeg.wasm lazy loading
+- [x] 06-01-PLAN.md — Vite migration with COOP/COEP headers
+- [x] 06-02-PLAN.md — Browser compatibility detection and FFmpeg.wasm lazy loading
 
 ### Phase 7: Core FFmpeg.wasm Processing
 **Goal**: Audio processing pipeline can apply cut regions to remove sections from audio files
@@ -180,7 +180,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 3. Transcript Navigation | v1.0 | 1/1 | Complete | 2026-01-22 |
 | 4. Cut Point Management | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
-| 6. Foundation & Configuration | v2.0 | 0/2 | Not started | - |
+| 6. Foundation & Configuration | v2.0 | 2/2 | Complete | 2026-01-27 |
 | 7. Core FFmpeg.wasm Processing | v2.0 | 0/TBD | Not started | - |
 | 8. Service Integration & Download | v2.0 | 0/TBD | Not started | - |
 | 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |

@@ -129,7 +129,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUT-05 | Phase 4 (v1.0) | Complete |
 | EXPORT-01 | Phase 5 (v1.0) | Complete |
 | EXPORT-02 | Phase 5 (v1.0) | Complete |
-| FFMPEG-01 | Phase 6 (v2.0) | Pending |
+| FFMPEG-01 | Phase 6 (v2.0) | Complete |
 | FFMPEG-02 | Phase 7 (v2.0) | Pending |
 | PROC-01 | Phase 7 (v2.0) | Pending |
 | PROC-02 | Phase 7 (v2.0) | Pending |

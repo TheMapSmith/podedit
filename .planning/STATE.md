@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-01-26)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Phase 6 - Foundation & Configuration (v2.0)
+**Current focus:** Phase 7 - Core FFmpeg.wasm Processing (v2.0)
 
 ## Current Position
 
-Phase: 6 of 10 (Foundation & Configuration)
-Plan: 2 of 2 complete
-Status: Complete
-Last activity: 2026-01-27 — Completed 06-02-PLAN.md (Browser compatibility & FFmpeg.wasm)
+Phase: 7 of 10 (Core FFmpeg.wasm Processing)
+Plan: Ready to plan Phase 7
+Status: Not started
+Last activity: 2026-01-27 — Phase 6 complete
 
 Progress: [█████▓░░░░] 60% (v1.0 complete, Phase 6 complete)
 
@@ -38,7 +38,7 @@ Progress: [█████▓░░░░] 60% (v1.0 complete, Phase 6 complete)
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 6. Foundation & Configuration | 1/1 | Complete |
+| 6. Foundation & Configuration | 2/2 | Complete ✓ |
 | 7. Core FFmpeg.wasm Processing | 0/TBD | Not started |
 | 8. Service Integration & Download | 0/TBD | Not started |
 | 9. Error Handling & Polish | 0/TBD | Not started |
