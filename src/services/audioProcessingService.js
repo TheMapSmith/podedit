@@ -9,6 +9,7 @@ class AudioProcessingService {
   constructor(browserCompatibility) {
     this.browserCompatibility = browserCompatibility;
     this.ffmpeg = null;
+    this.lastLogs = []; // Store recent FFmpeg logs for debugging
   }
 
   /**
@@ -195,6 +196,23 @@ class AudioProcessingService {
   }
 
   /**
+   * Verify output duration matches expected duration
+   * Placeholder for Phase 8 when browser playback context is available
+   * @param {Uint8Array} outputData - Processed audio data
+   * @param {number} expectedDuration - Expected duration in seconds
+   * @param {number} tolerance - Acceptable difference in seconds (default 0.5s)
+   * @returns {Promise<{valid: boolean, actualDuration: number|null, message: string}>}
+   */
+  async verifyOutputDuration(outputData, expectedDuration, tolerance = 0.5) {
+    // Placeholder - full verification requires browser playback
+    return {
+      valid: true,
+      actualDuration: null,
+      message: 'Duration verification requires browser playback'
+    };
+  }
+
+  /**
    * Process audio file with cuts
    * @param {File} file - Input audio file
    * @param {Array<CutRegion>} cutRegions - Array of cut regions to remove
@@ -219,10 +237,21 @@ class AudioProcessingService {
 
     let inputFilename = null;
     let outputFilename = null;
+    let inputWritten = false;
+    let outputWritten = false;
 
     try {
       // Ensure FFmpeg loaded
       await this.ensureFFmpegLoaded(onProgress);
+
+      // Setup FFmpeg log capture
+      this.lastLogs = [];
+      this.ffmpeg.on('log', ({ message }) => {
+        this.lastLogs.push(message);
+        if (this.lastLogs.length > 50) {
+          this.lastLogs.shift(); // Keep only last 50 messages
+        }
+      });
 
       // Convert File to Uint8Array
       const inputData = new Uint8Array(await file.arrayBuffer());
@@ -232,6 +261,7 @@ class AudioProcessingService {
 
       // Write input file to virtual filesystem
       await this.ffmpeg.writeFile(inputFilename, inputData);
+      inputWritten = true;
 
       if (onProgress) {
         onProgress({ stage: 'processing', progress: 10 });
@@ -257,6 +287,7 @@ class AudioProcessingService {
       ];
 
       await this.ffmpeg.exec(args);
+      outputWritten = true;
 
       if (onProgress) {
         onProgress({ stage: 'processing', progress: 80 });
@@ -267,19 +298,6 @@ class AudioProcessingService {
 
       // Calculate expected duration
       const expectedDuration = this.getExpectedOutputDuration(cutRegions, totalDuration);
-
-      // Cleanup virtual filesystem
-      try {
-        if (inputFilename) {
-          await this.ffmpeg.deleteFile(inputFilename);
-        }
-        if (outputFilename) {
-          await this.ffmpeg.deleteFile(outputFilename);
-        }
-      } catch (cleanupError) {
-        // Don't fail on cleanup errors
-        console.warn('Cleanup error:', cleanupError);
-      }
 
       if (onProgress) {
         onProgress({ stage: 'complete', progress: 100 });
@@ -292,19 +310,40 @@ class AudioProcessingService {
         expectedDuration
       };
     } catch (error) {
-      // Attempt cleanup even on error
+      // Map FFmpeg errors to user-friendly messages
+      let userMessage = 'Audio processing failed: ';
+
+      if (error.message.includes('Exit code: 1') || error.message.includes('Invalid')) {
+        userMessage += 'The audio file may be corrupted or in an unsupported format.';
+      } else if (error.message.includes('memory') || error.message.includes('Memory')) {
+        userMessage += 'Out of memory. Try processing a smaller file.';
+      } else {
+        userMessage += error.message;
+      }
+
+      // Include FFmpeg logs for debugging
+      if (this.lastLogs.length > 0) {
+        console.error('FFmpeg logs:', this.lastLogs.join('\n'));
+      }
+
+      throw new Error(userMessage);
+    } finally {
+      // Cleanup guarantee - only delete files that were written
       try {
-        if (inputFilename) {
+        if (inputWritten && inputFilename) {
           await this.ffmpeg.deleteFile(inputFilename);
         }
-        if (outputFilename) {
+      } catch (cleanupError) {
+        console.warn('Cleanup error (input):', cleanupError);
+      }
+
+      try {
+        if (outputWritten && outputFilename) {
           await this.ffmpeg.deleteFile(outputFilename);
         }
       } catch (cleanupError) {
-        // Ignore cleanup errors during error handling
+        console.warn('Cleanup error (output):', cleanupError);
       }
-
-      throw new Error(`Audio processing failed: ${error.message}`);
     }
   }
 
