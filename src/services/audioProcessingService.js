@@ -12,6 +12,7 @@ class AudioProcessingService {
     this.lastLogs = []; // Store recent FFmpeg logs for debugging
     this.timeout = options.timeout || 600000; // Default 10 minutes
     this._isProcessing = false;
+    this.cancelRequested = false; // Flag to track cancel state
   }
 
   /**
@@ -20,6 +21,22 @@ class AudioProcessingService {
    */
   isProcessing() {
     return this._isProcessing;
+  }
+
+  /**
+   * Cancel the current processing operation
+   * @returns {boolean} - true if cancel was initiated, false if no operation running
+   */
+  cancel() {
+    if (!this._isProcessing) {
+      return false;
+    }
+    this.cancelRequested = true;
+    // FFmpeg.wasm doesn't have native abort, but we can:
+    // 1. Set flag to prevent further progress
+    // 2. Let timeout handle cleanup
+    // 3. Reject with cancel error in processing loop
+    return true;
   }
 
   /**
@@ -252,6 +269,7 @@ class AudioProcessingService {
     }
 
     this._isProcessing = true;
+    this.cancelRequested = false; // Reset cancel flag at start
     const fileTracker = {
       inputFilename: null,
       outputFilename: null,
@@ -279,6 +297,11 @@ class AudioProcessingService {
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
 
+      // Check if this was a user cancellation
+      if (error.message.toLowerCase().includes('cancelled')) {
+        throw new Error('Processing cancelled by user');
+      }
+
       // Map FFmpeg errors to user-friendly messages
       let userMessage = 'Audio processing failed: ';
 
@@ -300,6 +323,7 @@ class AudioProcessingService {
       throw new Error(userMessage);
     } finally {
       this._isProcessing = false;
+      this.cancelRequested = false; // Reset flag in finally block
 
       // Cleanup guarantee - only delete files that were written
       try {
@@ -327,6 +351,11 @@ class AudioProcessingService {
   async _processAudioInternal(file, cutRegions, totalDuration, onProgress, fileTracker) {
     // Ensure FFmpeg loaded (0-10% progress)
     await this.ensureFFmpegLoaded(onProgress);
+
+    // Check if cancel was requested
+    if (this.cancelRequested) {
+      throw new Error('Processing cancelled by user');
+    }
 
     // Setup FFmpeg log capture with progress parsing
     this.lastLogs = [];
@@ -371,6 +400,11 @@ class AudioProcessingService {
       onProgress({ stage: 'processing', progress: 15 });
     }
 
+    // Check if cancel was requested
+    if (this.cancelRequested) {
+      throw new Error('Processing cancelled by user');
+    }
+
     // Build FFmpeg command
     const { filterComplex, useDirectCopy } = this.buildFilterCommand(cutRegions, totalDuration);
 
@@ -392,6 +426,11 @@ class AudioProcessingService {
 
     await this.ffmpeg.exec(args);
     fileTracker.outputWritten = true;
+
+    // Check if cancel was requested
+    if (this.cancelRequested) {
+      throw new Error('Processing cancelled by user');
+    }
 
     if (onProgress) {
       onProgress({ stage: 'processing', progress: 90 });
