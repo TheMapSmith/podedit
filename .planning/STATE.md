@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 ## Current Position
 
 Phase: 9 of 10 (Error Handling & Polish)
-Plan: 2 of TBD in phase
-Status: In progress
+Plan: 2 of 2 in phase
+Status: Phase 9 complete
 Last activity: 2026-01-28 — Completed 09-02-PLAN.md (Processing time estimation & log display)
 
-Progress: [█████████░] 88% (v1.0 complete, Phase 6-9 partial complete)
+Progress: [█████████░] 90% (v1.0 complete, Phase 6-9 complete)
 
 ## Performance Metrics
 
@@ -35,7 +35,7 @@ Progress: [█████████░] 88% (v1.0 complete, Phase 6-9 partial
 | 06-foundation-configuration | 2/2 | 6min | 3min |
 | 07-core-ffmpeg-wasm-processing | 2/2 | 4min | 2min |
 | 08-service-integration-and-download | 1/1 | 2min | 2min |
-| 09-error-handling-polish | 2/TBD | 5min | 2.5min |
+| 09-error-handling-polish | 2/2 | 5min | 2.5min |
 
 **v2.0 Phases:**
 
@@ -44,7 +44,7 @@ Progress: [█████████░] 88% (v1.0 complete, Phase 6-9 partial
 | 6. Foundation & Configuration | 2/2 | Complete ✓ |
 | 7. Core FFmpeg.wasm Processing | 2/2 | Complete ✓ |
 | 8. Service Integration & Download | 1/1 | Complete ✓ |
-| 9. Error Handling & Polish | 2/TBD | In progress |
+| 9. Error Handling & Polish | 2/2 | Complete ✓ |
 | 10. UAT & Browser Compatibility | 0/TBD | Not started |
 
 **Recent Trend:**
@@ -82,6 +82,9 @@ Recent decisions affecting v2.0 work:
 - **Button re-enable in finally block (08-01):** Guarantee UI state recovery even on processing error
 - **Cancel flag pattern (09-01):** FFmpeg.wasm lacks native abort - use cancelRequested flag checked at major steps (load/write/exec)
 - **Info styling for user cancellation (09-01):** Show cancelled operations with blue info styling vs red error styling - not an error condition
+- **Duration-based time estimation (09-02):** Estimate processing time from audio duration (1 min per 10-20 min audio), file size (add 1-2 min for >30 MB), and iOS Safari detection (2x slower)
+- **Structured progress display (09-02):** Separate text/progress bar/logs into distinct UI elements - toggle button for optional FFmpeg log visibility
+- **Real-time FFmpeg logs via onProgress (09-02):** Emit log messages through progress callback with stage: 'log' - enables streaming output without blocking main progress updates
 - **Processing time estimation algorithm (09-02):** 1 min per 10-20 min audio (optimistic/conservative), 2x for iOS Safari single-thread, file size factor for >30MB
 - **Expandable log panel (09-02):** FFmpeg logs hidden by default with toggle button - avoid overwhelming users while providing debugging visibility
 - **Progress bar structured display (09-02):** Header with status text + toggle button, visual progress bar 0-100%, auto-scrolling log panel
@@ -195,15 +198,17 @@ All 5 phases complete - PodEdit v1.0 milestone achieved 2026-01-24
 - User-friendly error messages with color-coded status display
 - Button state management (disable during processing, re-enable after)
 
-**Phase 9 - Error Handling & Polish: IN PROGRESS**
+**Phase 9 - Error Handling & Polish: COMPLETE** ✓
 - Cancel button with red styling (appears during processing)
 - AudioProcessingService.cancel() method with cancelRequested flag
 - Cancel checks at major processing steps (FFmpeg load, file write, exec)
 - User-friendly "Processing cancelled" message with info styling (blue)
 - UI state recovery after cancellation (buttons re-enabled, cancel button hidden)
-- Processing time estimation based on duration, file size, iOS Safari detection (1-2 min for 60-min podcast, 2x for iOS)
+- Processing time estimation based on duration, file size, iOS Safari detection (3-6 min for 60-min podcast, 2x for iOS)
 - Visual progress bar 0-100% with smooth transitions
 - Real-time FFmpeg log display with toggle button (hidden by default)
+- Auto-scroll log panel to latest output
+- Structured progress display (text, bar, logs separate)
 - Auto-scrolling log panel for latest output visibility
 
 **Phase 10 - UAT & Browser Compatibility: NOT STARTED**
