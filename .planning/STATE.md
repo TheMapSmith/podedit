@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Planning next milestone
+**Current focus:** Milestone v3.0 UX & Preview Enhancements
 
 ## Current Position
 
-Phase: v2.0 milestone complete (Phases 1-9)
-Plan: Not started
-Status: Ready to plan next milestone
-Last activity: 2026-01-28 — v2.0 milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-28 — Milestone v3.0 started
 
 Progress: [█████████░] 90% (v1.0 complete, v2.0 Phases 6-9 complete)
 

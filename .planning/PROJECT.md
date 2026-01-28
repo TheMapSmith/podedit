@@ -28,6 +28,17 @@ Transcript-driven audio editing that makes it fast to find, mark, and remove sec
 - API-based transcription (OpenAI Whisper API)
 - Local development only (no deployment)
 
+## Current Milestone: v3.0 UX & Preview Enhancements
+
+**Goal:** Improve editing workflow with visual feedback, preview playback, and modern UI polish
+
+**Target features:**
+- Highlight cut regions in transcript with shaded background styling
+- Preview playback that automatically skips cut regions
+- Transcript search with real-time text highlighting (mark.js)
+- Dark podcast/audio editor theme with modern aesthetic
+- Minimal getting started instructions for first-time users
+
 ## Requirements
 
 ### Validated
@@ -52,9 +63,15 @@ From v2.0 (shipped 2026-01-28):
 
 ### Active
 
-Future enhancements:
+v3.0 milestone (in planning):
+- [ ] Cut regions visually highlighted in transcript
+- [ ] Preview playback skips cut regions automatically
+- [ ] Transcript search with real-time highlighting
+- [ ] Dark theme with podcast/audio editor aesthetic
+- [ ] Getting started instructions on landing page
+
+Future enhancements (deferred):
 - [ ] Format conversion options (MP3→WAV, M4A→MP3)
-- [ ] Preview processed audio before download
 - [ ] Batch processing for multiple files
 - [ ] Keyboard shortcuts for common operations
 
@@ -92,4 +109,4 @@ The transcript is the primary navigation tool - the user skims text to find prob
 | Basic audio player | Core functionality sufficient, no visualization needed | — Pending |
 
 ---
-*Last updated: 2026-01-28 after v2.0 milestone completion*
+*Last updated: 2026-01-28 after v3.0 milestone initialization*
