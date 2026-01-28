@@ -26,13 +26,16 @@ Note: Vite dev server is required (not optional) because it provides the COOP/CO
 - Editable timestamps with multi-format parsing
 - Export cut list as JSON for external audio editors
 
-### v2.0 (In Progress)
+### v2.0 (Phases 6-9 Complete)
 
 - Browser-based audio processing with FFmpeg.wasm (no server required, 100% private)
 - Multi-threaded processing for 2x speed (60-min podcast in 3-6 minutes)
 - File size validation (50 MB soft warning, 100 MB hard limit)
 - iOS Safari support with single-thread fallback
-- Progress tracking with time-based completion estimates
+- Processing time estimation (shows expected duration before starting)
+- Visual progress bar with percentage (0-100%)
+- Real-time FFmpeg log display (expandable panel for debugging)
+- Cancel button to abort processing mid-operation
 - Automatic memory cleanup prevents browser crashes
 
 ## Requirements
