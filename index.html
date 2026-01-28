@@ -444,6 +444,23 @@
       cursor: wait;
     }
 
+    #cancel-processing-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      background: #dc3545;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-left: 10px;
+    }
+
+    #cancel-processing-btn:hover {
+      background: #c82333;
+    }
+
     .cut-list {
       max-height: 200px;
       overflow-y: auto;
@@ -694,6 +711,7 @@
       <div class="export-controls">
         <button id="export-btn" disabled>Export Cuts</button>
         <button id="export-audio-btn" disabled>Export Edited Audio</button>
+        <button id="cancel-processing-btn" style="display: none;">Cancel</button>
       </div>
     </div>
   </div>
@@ -734,6 +752,7 @@
       cutList: document.getElementById('cut-list'),
       exportBtn: document.getElementById('export-btn'),
       exportAudioBtn: document.getElementById('export-audio-btn'),
+      cancelBtn: document.getElementById('cancel-processing-btn'),
       transcriptHistory: document.getElementById('transcript-history'),
       historyList: document.getElementById('history-list'),
       compatMessages: document.getElementById('compat-messages'),
@@ -1234,7 +1253,8 @@
       elements.exportBtn.disabled = true;
       elements.exportAudioBtn.disabled = true;
 
-      // Show processing status
+      // Show cancel button and processing status
+      elements.cancelBtn.style.display = 'inline-block';
       elements.processingStatus.style.display = 'block';
       elements.processingStatus.style.background = '#e7f3ff';
       elements.processingStatus.style.borderColor = '#007bff';
@@ -1289,16 +1309,34 @@
         elements.processingStatus.style.color = '#155724';
 
       } catch (error) {
-        // Show error
-        elements.processingStatus.textContent = error.message;
-        elements.processingStatus.style.background = '#f8d7da';
-        elements.processingStatus.style.borderColor = '#dc3545';
-        elements.processingStatus.style.color = '#721c24';
+        // Check if this was a cancellation
+        if (error.message.toLowerCase().includes('cancelled')) {
+          // Cancelled - show as info, not error
+          elements.processingStatus.textContent = 'Processing cancelled';
+          elements.processingStatus.style.background = '#e7f3ff';
+          elements.processingStatus.style.borderColor = '#007bff';
+          elements.processingStatus.style.color = '#004085';
+        } else {
+          // Actual error - show as error
+          elements.processingStatus.textContent = error.message;
+          elements.processingStatus.style.background = '#f8d7da';
+          elements.processingStatus.style.borderColor = '#dc3545';
+          elements.processingStatus.style.color = '#721c24';
+        }
       } finally {
+        // Hide cancel button
+        elements.cancelBtn.style.display = 'none';
         // Re-enable buttons
         const hasCuts = cutController.getCutRegions().length > 0;
         elements.exportBtn.disabled = !hasCuts;
         elements.exportAudioBtn.disabled = !hasCuts;
+      }
+    });
+
+    // Cancel Processing button click handler
+    elements.cancelBtn.addEventListener('click', () => {
+      if (audioProcessingService.cancel()) {
+        elements.processingStatus.textContent = 'Cancelling...';
       }
     });
 
