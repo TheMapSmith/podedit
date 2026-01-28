@@ -77,30 +77,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VIS-01 | TBD | Pending |
-| VIS-02 | TBD | Pending |
-| VIS-03 | TBD | Pending |
-| VIS-04 | TBD | Pending |
-| VIS-05 | TBD | Pending |
-| VIS-06 | TBD | Pending |
-| NAV-01 | TBD | Pending |
-| NAV-02 | TBD | Pending |
-| NAV-03 | TBD | Pending |
-| NAV-04 | TBD | Pending |
-| NAV-05 | TBD | Pending |
-| NAV-06 | TBD | Pending |
-| NAV-07 | TBD | Pending |
-| NAV-08 | TBD | Pending |
-| ONB-01 | TBD | Pending |
-| ONB-02 | TBD | Pending |
-| ONB-03 | TBD | Pending |
-| ONB-04 | TBD | Pending |
+| VIS-01 | Phase 11 | Pending |
+| VIS-02 | Phase 11 | Pending |
+| VIS-03 | Phase 11 | Pending |
+| VIS-04 | Phase 10 | Pending |
+| VIS-05 | Phase 10 | Pending |
+| VIS-06 | Phase 10 | Pending |
+| NAV-01 | Phase 12 | Pending |
+| NAV-02 | Phase 12 | Pending |
+| NAV-03 | Phase 12 | Pending |
+| NAV-04 | Phase 12 | Pending |
+| NAV-05 | Phase 13 | Pending |
+| NAV-06 | Phase 13 | Pending |
+| NAV-07 | Phase 13 | Pending |
+| NAV-08 | Phase 13 | Pending |
+| ONB-01 | Phase 10 | Pending |
+| ONB-02 | Phase 10 | Pending |
+| ONB-03 | Phase 10 | Pending |
+| ONB-04 | Phase 10 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 18 total
-- Mapped to phases: 0 (roadmap not yet created)
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18 (100% coverage)
+- Unmapped: 0 ✓
+
+**Phase distribution:**
+- Phase 10 (Dark Theme & Onboarding UI): 7 requirements
+- Phase 11 (Cut Region Visual Highlighting): 3 requirements
+- Phase 12 (Transcript Search): 4 requirements
+- Phase 13 (Preview Playback): 4 requirements
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-28 after initial definition*
+*Last updated: 2026-01-28 after v3.0 roadmap creation*

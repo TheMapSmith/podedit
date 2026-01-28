@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Milestone v3.0 UX & Preview Enhancements
+**Current focus:** Phase 10 - Dark Theme & Onboarding UI (v3.0 milestone)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-01-28 — Milestone v3.0 started
+Phase: 10 of 13 (Dark Theme & Onboarding UI)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-28 - v3.0 roadmap created with 4 phases covering 18 requirements
 
-Progress: [█████████░] 90% (v1.0 complete, v2.0 Phases 6-9 complete)
+Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9)
 
 ## Performance Metrics
 
@@ -37,96 +37,58 @@ Progress: [█████████░] 90% (v1.0 complete, v2.0 Phases 6-9 c
 | 08-service-integration-and-download | 1/1 | 2min | 2min |
 | 09-error-handling-polish | 2/2 | 5min | 2.5min |
 
-**v2.0 Phases:**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 6. Foundation & Configuration | 2/2 | Complete ✓ |
-| 7. Core FFmpeg.wasm Processing | 2/2 | Complete ✓ |
-| 8. Service Integration & Download | 1/1 | Complete ✓ |
-| 9. Error Handling & Polish | 2/2 | Complete ✓ |
-| 10. UAT & Browser Compatibility | 0/TBD | Not started |
-
 **Recent Trend:**
 - Last 5 plans: 07-01 (1min), 07-02 (3min), 08-01 (2min), 09-01 (2min), 09-02 (3min)
 - Trend: Consistently fast (1-3 minutes per plan)
+
+*Updated: 2026-01-28*
 
 ## Accumulated Context
 
 ### Decisions
 
-See .planning/PROJECT.md for key decisions table.
+Decisions are logged in PROJECT.md Key Decisions table.
 
-v2.0 decisions (full list in archived milestones/v2-ROADMAP.md):
-- **FFmpeg.wasm for browser processing:** Maintains privacy, eliminates backend complexity
-- **Multi-threaded core (@ffmpeg/core-mt):** 2x performance improvement (3-6 min vs 6-12 min for 60-min podcast)
-- **Vite migration required:** Cross-origin isolation headers (COOP/COEP) needed for SharedArrayBuffer/multi-threading
-- **File size validation (<100 MB):** Prevents memory exhaustion crashes
-- **Single-thread fallback for iOS Safari:** SharedArrayBuffer unsupported in Safari Web Workers
-- **Vite 7.3.1 chosen for header control (06-01):** serve package cannot set custom response headers; Vite server.headers config enables COOP/COEP
-- **COOP: same-origin + COEP: require-corp (06-01):** Both headers together enable crossOriginIsolated and SharedArrayBuffer in browsers
-- **Added type: module to package.json (06-01):** Makes ES module usage explicit, eliminates Node.js parsing warnings
-- **FFmpeg.wasm lazy loads on-demand (06-02):** Dynamic import prevents 20MB+ download on page load, progress callbacks enable loading UI
-- **50 MB soft warning, 100 MB hard limit (06-02):** Two-level validation prevents browser memory exhaustion while allowing moderate file sizes
-- **iOS Safari detection upfront (06-02):** Explicit warning about 2x slower single-thread mode improves UX vs silent degradation
-- **filter_complex approach for cut processing (07-01):** Extract KEEP segments (inverse of cuts) and concatenate with atrim/concat filters - more efficient than multiple temp files
-- **asetpts=PTS-STARTPTS after atrim (07-01):** Timestamp reset critical for seamless concatenation, prevents audio gaps/overlaps
-- **Merge overlapping/adjacent cuts (07-01):** Prevents zero-duration KEEP segments, simplifies filter command generation
-- **Finally block cleanup pattern (07-02):** Virtual filesystem cleanup guaranteed even on error - prevents memory leaks in browser
-- **Progress from FFmpeg time= logs (07-02):** Parse time=HH:MM:SS.ms from logs for accurate progress (15-90% range during processing)
-- **10-minute processing timeout (07-02):** Default timeout balances patience (60-min podcast = 3-6 min) vs resource constraints
-- **fileTracker object pattern (07-02):** Track inputWritten/outputWritten flags for safe cleanup - only delete files that were written
-- **Purple button for Export Edited Audio (08-01):** Distinguish audio processing (#6f42c1) from JSON export (#007bff) with clear visual separation
-- **Timestamped filename format (08-01):** YYYYMMDD_HHMMSS format for unique, sortable filenames (e.g., podcast_edited_20260128_023853.mp3)
-- **Blob URL cleanup with 1-second delay (08-01):** setTimeout before revokeObjectURL ensures download starts before cleanup
-- **Button re-enable in finally block (08-01):** Guarantee UI state recovery even on processing error
-- **Cancel flag pattern (09-01):** FFmpeg.wasm lacks native abort - use cancelRequested flag checked at major steps (load/write/exec)
-- **Info styling for user cancellation (09-01):** Show cancelled operations with blue info styling vs red error styling - not an error condition
-- **Duration-based time estimation (09-02):** Estimate processing time from audio duration (1 min per 10-20 min audio), file size (add 1-2 min for >30 MB), and iOS Safari detection (2x slower)
-- **Structured progress display (09-02):** Separate text/progress bar/logs into distinct UI elements - toggle button for optional FFmpeg log visibility
-- **Real-time FFmpeg logs via onProgress (09-02):** Emit log messages through progress callback with stage: 'log' - enables streaming output without blocking main progress updates
-- **Processing time estimation algorithm (09-02):** 1 min per 10-20 min audio (optimistic/conservative), 2x for iOS Safari single-thread, file size factor for >30MB
-- **Expandable log panel (09-02):** FFmpeg logs hidden by default with toggle button - avoid overwhelming users while providing debugging visibility
-- **Progress bar structured display (09-02):** Header with status text + toggle button, visual progress bar 0-100%, auto-scrolling log panel
+Recent v3.0 roadmap decisions:
+- **Dark theme foundation-first:** Zero dependencies enables parallel work on CSS while planning preview playback complexity
+- **Cut highlighting before search:** Validates DOM manipulation patterns before mark.js integration
+- **Preview playback last:** State machine complexity and dependency on stable cut highlighting
+- **Phase numbering continues from v2.0:** Phases 10-13 for v3.0 milestone (v2.0 ended at Phase 9)
+
+v2.0 key decisions (full list in archived milestone docs):
+- FFmpeg.wasm browser processing maintains privacy
+- Multi-threaded core for 2x performance improvement
+- Vite migration for COOP/COEP headers
+- 50 MB warning, 100 MB hard limit for file size
+- iOS Safari single-thread fallback
 
 ### Pending Todos
 
-- Consider Phase 10 UAT & Browser Compatibility testing
-- Or start planning next milestone with /gsd:new-milestone
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 007 | update readme with current app status | 2026-01-28 | 4302e98 | [007-update-readme-with-current-app-status](./quick/007-update-readme-with-current-app-status/) |
-| 006 | update readme.md with latest updates and features and instructions | 2026-01-28 | 6937100 | [006-update-readme-md-with-latest-updates-and](./quick/006-update-readme-md-with-latest-updates-and/) |
+None yet - v3.0 planning just started.
 
 ### Blockers/Concerns
 
-**Phase 6 prerequisites:**
-- ✅ Vite migration complete (06-01) - COOP/COEP headers configured
-- ✅ Cross-origin isolation headers enabled - SharedArrayBuffer ready for Phase 7
-- ✅ Browser compatibility detection (06-02) - Feature detection and FFmpeg.wasm lazy loading ready
-- ✅ File size validation (06-02) - 50 MB warning, 100 MB hard limit prevents crashes
+**v3.0 Phase readiness (from research):**
+- **Phase 10:** Dark theme FOUC prevention requires inline script in head before CSS links
+- **Phase 12:** mark.js and cut highlighting both manipulate DOM - requires CSS specificity hierarchy and explicit unmark() cleanup
+- **Phase 13:** Preview playback state machine must subscribe to CutController.onCutListChanged for synchronization
+- **Phase 13:** VBR MP3 seek imprecision requires 0.1-0.2s tolerance in skip logic
 
-**Phase 7 risks:**
-- ✅ FFmpeg command construction (07-01 complete) - filter_complex generation working with comprehensive edge case handling
-- ✅ Memory cleanup patterns (07-02 complete) - finally block guarantees virtual filesystem cleanup, prevents leaks
-
-**Phase 10 unknowns:**
-- iOS Safari performance with single-thread fallback (likely 2x slower = 6-12 min for 60-min podcast)
-- Real-world memory limits with variable bitrate files or longer podcasts
+All blockers have validated mitigation strategies from research phase.
 
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: v2.0 milestone complete and archived
+Stopped at: Created v3.0 roadmap with 4 phases (10-13), mapped all 18 requirements with 100% coverage
 Resume file: None
-Next: /gsd:new-milestone to start planning next milestone
+Next: /gsd:plan-phase 10 to begin planning Dark Theme & Onboarding UI
 
 ---
 
-## v1.0 Summary (Phases 1-5 COMPLETE)
+## Milestone Archives
+
+<details>
+<summary>v1.0 Summary (Phases 1-5 COMPLETE)</summary>
 
 **Phase 1 - Audio Playback Foundation: COMPLETE** ✓
 - AudioService with streaming support for large files
@@ -161,56 +123,36 @@ Next: /gsd:new-milestone to start planning next milestone
 
 All 5 phases complete - PodEdit v1.0 milestone achieved 2026-01-24
 
----
+</details>
 
-## v2.0 Progress (Phase 6 onwards)
+<details>
+<summary>v2.0 Progress (Phases 6-9 COMPLETE)</summary>
 
 **Phase 6 - Foundation & Configuration: COMPLETE** ✓
 - Vite 7.3.1 dev server with COOP/COEP headers
 - Cross-origin isolation enabled for SharedArrayBuffer
-- ES module configuration with type: module
-- Existing v1.0 app verified Vite-compatible (no code changes needed)
 - BrowserCompatibility service with feature detection
 - FFmpeg.wasm lazy loading with progress callbacks
 - File size validation: 50 MB warning, 100 MB hard limit
-- iOS Safari detection with single-thread mode warning
 
 **Phase 7 - Core FFmpeg.wasm Processing: COMPLETE** ✓
 - AudioProcessingService with filter_complex command generation
 - Cut region to KEEP segment conversion with edge case handling
-- Overlapping/adjacent cut merging for optimized filter chains
 - FFmpeg virtual filesystem I/O with guaranteed cleanup
 - Progress tracking from FFmpeg time= logs (0-100%)
-- Timeout protection (10 min default, configurable)
-- Robust error handling with log capture for debugging
-- Expected output duration calculation for verification
-- Complete processing pipeline: write → exec → read → cleanup
-- Progress callbacks with FFmpeg time= log parsing
-- Timeout protection (10-minute default)
-- Virtual filesystem cleanup guaranteed via finally block
 
 **Phase 8 - Service Integration & Download: COMPLETE** ✓
-- Export Edited Audio button with purple styling (#6f42c1)
-- AudioProcessingService integrated with UI event handlers
-- currentFile reference tracking for processing operations
-- Progress callback with stage-specific messaging (loading/processing/complete)
-- Timestamped filename generation: originalname_edited_YYYYMMDD_HHMMSS.ext
-- Browser download trigger with blob URL creation and cleanup
-- Validation before processing (cuts exist, audio loaded, file size limits)
-- User-friendly error messages with color-coded status display
-- Button state management (disable during processing, re-enable after)
+- Export Edited Audio button with purple styling
+- Timestamped filename generation
+- Browser download trigger with blob URL creation
+- Validation before processing
 
 **Phase 9 - Error Handling & Polish: COMPLETE** ✓
-- Cancel button with red styling (appears during processing)
-- AudioProcessingService.cancel() method with cancelRequested flag
-- Cancel checks at major processing steps (FFmpeg load, file write, exec)
-- User-friendly "Processing cancelled" message with info styling (blue)
-- UI state recovery after cancellation (buttons re-enabled, cancel button hidden)
-- Processing time estimation based on duration, file size, iOS Safari detection (3-6 min for 60-min podcast, 2x for iOS)
-- Visual progress bar 0-100% with smooth transitions
-- Real-time FFmpeg log display with toggle button (hidden by default)
-- Auto-scroll log panel to latest output
-- Structured progress display (text, bar, logs separate)
-- Auto-scrolling log panel for latest output visibility
+- Cancel button with cancelRequested flag
+- Processing time estimation
+- Real-time FFmpeg log display with toggle
+- Structured progress display (text, bar, logs)
 
-**Phase 10 - UAT & Browser Compatibility: NOT STARTED**
+All 4 phases complete - PodEdit v2.0 milestone achieved 2026-01-28
+
+</details>
