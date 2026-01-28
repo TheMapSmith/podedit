@@ -641,6 +641,16 @@
       color: #004085;
       font-size: 14px;
     }
+
+    .processing-estimate {
+      margin: 10px 0;
+      padding: 10px 12px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      color: #856404;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -661,6 +671,7 @@
 
     <div id="compat-messages"></div>
     <div id="processing-status" class="processing-status" style="display: none;"></div>
+    <div id="processing-estimate" class="processing-estimate" style="display: none;"></div>
     <button id="test-ffmpeg-btn" style="margin-top: 10px;">Test FFmpeg Loading</button>
 
     <div id="player-controls" class="player-controls hidden">
@@ -757,6 +768,7 @@
       historyList: document.getElementById('history-list'),
       compatMessages: document.getElementById('compat-messages'),
       processingStatus: document.getElementById('processing-status'),
+      processingEstimate: document.getElementById('processing-estimate'),
       testFfmpegBtn: document.getElementById('test-ffmpeg-btn')
     };
 
@@ -917,6 +929,48 @@
 
     // Initialize transcript history on page load
     loadTranscriptHistory();
+
+    /**
+     * Estimate processing time based on audio duration and file size
+     * Multi-threaded FFmpeg: roughly 3-6 min for 60-min podcast
+     * Single-thread (iOS Safari): roughly 6-12 min for 60-min podcast
+     * @param {number} durationSeconds - Audio duration in seconds
+     * @param {number} fileSizeBytes - File size in bytes
+     * @param {BrowserCompatibility} compat - Browser compatibility service for iOS detection
+     * @returns {{ minMinutes: number, maxMinutes: number, formatted: string }}
+     */
+    function estimateProcessingTime(durationSeconds, fileSizeBytes, compat) {
+      // Base estimate: 1 minute processing per 10 minutes of audio (multi-threaded)
+      // Add file size factor: larger files take longer
+      const durationMinutes = durationSeconds / 60;
+      const fileSizeMB = fileSizeBytes / (1024 * 1024);
+
+      // Base time from duration
+      let minMinutes = Math.ceil(durationMinutes / 20); // Optimistic: 20 min audio per 1 min processing
+      let maxMinutes = Math.ceil(durationMinutes / 10); // Conservative: 10 min audio per 1 min processing
+
+      // Add file size factor (larger files = more I/O)
+      if (fileSizeMB > 30) {
+        minMinutes += 1;
+        maxMinutes += 2;
+      }
+
+      // Minimum bounds
+      minMinutes = Math.max(1, minMinutes);
+      maxMinutes = Math.max(2, maxMinutes);
+
+      // Check for iOS Safari (2x slower)
+      if (compat && compat.detectIOSSafari()) {
+        minMinutes *= 2;
+        maxMinutes *= 2;
+      }
+
+      const formatted = minMinutes === maxMinutes
+        ? `~${minMinutes} minute${minMinutes > 1 ? 's' : ''}`
+        : `${minMinutes}-${maxMinutes} minutes`;
+
+      return { minMinutes, maxMinutes, formatted };
+    }
 
     // Test FFmpeg loading button
     elements.testFfmpegBtn.addEventListener('click', async () => {
@@ -1249,6 +1303,11 @@
         return;
       }
 
+      // Show estimate before processing starts
+      const estimate = estimateProcessingTime(duration, currentFile.size, browserCompat);
+      elements.processingEstimate.textContent = `Estimated processing time: ${estimate.formatted}`;
+      elements.processingEstimate.style.display = 'block';
+
       // Disable buttons during processing
       elements.exportBtn.disabled = true;
       elements.exportAudioBtn.disabled = true;
@@ -1324,8 +1383,9 @@
           elements.processingStatus.style.color = '#721c24';
         }
       } finally {
-        // Hide cancel button
+        // Hide cancel button and estimate
         elements.cancelBtn.style.display = 'none';
+        elements.processingEstimate.style.display = 'none';
         // Re-enable buttons
         const hasCuts = cutController.getCutRegions().length > 0;
         elements.exportBtn.disabled = !hasCuts;
