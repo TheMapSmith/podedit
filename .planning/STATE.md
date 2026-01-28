@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 ## Current Position
 
 Phase: 9 of 10 (Error Handling & Polish)
-Plan: 1 of TBD in phase
+Plan: 2 of TBD in phase
 Status: In progress
-Last activity: 2026-01-28 — Completed 09-01-PLAN.md (Cancel/abort processing)
+Last activity: 2026-01-28 — Completed 09-02-PLAN.md (Processing time estimation & log display)
 
-Progress: [█████████░] 84% (v1.0 complete, Phase 6-9 partial complete)
+Progress: [█████████░] 88% (v1.0 complete, Phase 6-9 partial complete)
 
 ## Performance Metrics
 
 **Velocity (All plans):**
-- Total plans completed: 15
-- Average duration: 2.2 minutes
-- Total execution time: 0.48 hours
+- Total plans completed: 16
+- Average duration: 2.3 minutes
+- Total execution time: 0.53 hours
 
 **By Phase:**
 
@@ -35,7 +35,7 @@ Progress: [█████████░] 84% (v1.0 complete, Phase 6-9 partial
 | 06-foundation-configuration | 2/2 | 6min | 3min |
 | 07-core-ffmpeg-wasm-processing | 2/2 | 4min | 2min |
 | 08-service-integration-and-download | 1/1 | 2min | 2min |
-| 09-error-handling-polish | 1/TBD | 2min | 2min |
+| 09-error-handling-polish | 2/TBD | 5min | 2.5min |
 
 **v2.0 Phases:**
 
@@ -44,11 +44,11 @@ Progress: [█████████░] 84% (v1.0 complete, Phase 6-9 partial
 | 6. Foundation & Configuration | 2/2 | Complete ✓ |
 | 7. Core FFmpeg.wasm Processing | 2/2 | Complete ✓ |
 | 8. Service Integration & Download | 1/1 | Complete ✓ |
-| 9. Error Handling & Polish | 1/TBD | In progress |
+| 9. Error Handling & Polish | 2/TBD | In progress |
 | 10. UAT & Browser Compatibility | 0/TBD | Not started |
 
 **Recent Trend:**
-- Last 5 plans: 06-02 (3min), 07-01 (1min), 07-02 (3min), 08-01 (2min), 09-01 (2min)
+- Last 5 plans: 07-01 (1min), 07-02 (3min), 08-01 (2min), 09-01 (2min), 09-02 (3min)
 - Trend: Consistently fast (1-3 minutes per plan)
 
 ## Accumulated Context
@@ -82,6 +82,9 @@ Recent decisions affecting v2.0 work:
 - **Button re-enable in finally block (08-01):** Guarantee UI state recovery even on processing error
 - **Cancel flag pattern (09-01):** FFmpeg.wasm lacks native abort - use cancelRequested flag checked at major steps (load/write/exec)
 - **Info styling for user cancellation (09-01):** Show cancelled operations with blue info styling vs red error styling - not an error condition
+- **Processing time estimation algorithm (09-02):** 1 min per 10-20 min audio (optimistic/conservative), 2x for iOS Safari single-thread, file size factor for >30MB
+- **Expandable log panel (09-02):** FFmpeg logs hidden by default with toggle button - avoid overwhelming users while providing debugging visibility
+- **Progress bar structured display (09-02):** Header with status text + toggle button, visual progress bar 0-100%, auto-scrolling log panel
 
 ### Pending Todos
 
@@ -112,7 +115,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 09-01-PLAN.md (Cancel/abort processing)
+Stopped at: Completed 09-02-PLAN.md (Processing time estimation & log display)
 Resume file: None
 Next: Continue Phase 9 (Error handling and polish) or Phase 10 (UAT and browser compatibility testing)
 
@@ -198,5 +201,9 @@ All 5 phases complete - PodEdit v1.0 milestone achieved 2026-01-24
 - Cancel checks at major processing steps (FFmpeg load, file write, exec)
 - User-friendly "Processing cancelled" message with info styling (blue)
 - UI state recovery after cancellation (buttons re-enabled, cancel button hidden)
+- Processing time estimation based on duration, file size, iOS Safari detection (1-2 min for 60-min podcast, 2x for iOS)
+- Visual progress bar 0-100% with smooth transitions
+- Real-time FFmpeg log display with toggle button (hidden by default)
+- Auto-scrolling log panel for latest output visibility
 
 **Phase 10 - UAT & Browser Compatibility: NOT STARTED**
