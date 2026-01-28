@@ -416,6 +416,34 @@
       opacity: 0.6;
     }
 
+    #export-audio-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      background: #6f42c1;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-left: 10px;
+    }
+
+    #export-audio-btn:hover:not(:disabled) {
+      background: #5a32a3;
+    }
+
+    #export-audio-btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #export-audio-btn.processing {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
     .cut-list {
       max-height: 200px;
       overflow-y: auto;
@@ -665,6 +693,7 @@
 
       <div class="export-controls">
         <button id="export-btn" disabled>Export Cuts</button>
+        <button id="export-audio-btn" disabled>Export Edited Audio</button>
       </div>
     </div>
   </div>
@@ -677,6 +706,7 @@
     import CutController from './src/controllers/cutController.js';
     import ExportService from './src/services/exportService.js';
     import BrowserCompatibility from './src/services/browserCompatibility.js';
+    import AudioProcessingService from './src/services/audioProcessingService.js';
     import { validateAudioFile, validateForProcessing } from './src/services/fileValidator.js';
     import { formatFileSize } from './src/utils/timeFormat.js';
 
@@ -703,6 +733,7 @@
       pendingCutStatus: document.getElementById('pending-cut-status'),
       cutList: document.getElementById('cut-list'),
       exportBtn: document.getElementById('export-btn'),
+      exportAudioBtn: document.getElementById('export-audio-btn'),
       transcriptHistory: document.getElementById('transcript-history'),
       historyList: document.getElementById('history-list'),
       compatMessages: document.getElementById('compat-messages'),
@@ -716,6 +747,12 @@
 
     // Initialize BrowserCompatibility
     const browserCompat = new BrowserCompatibility();
+
+    // Initialize AudioProcessingService
+    const audioProcessingService = new AudioProcessingService(browserCompat);
+
+    // Store current file reference for processing
+    let currentFile = null;
 
     // Check compatibility on page load
     function checkBrowserCompatibility() {
@@ -917,6 +954,9 @@
       try {
         // Load file into audio service
         const result = await audioService.loadFile(file);
+
+        // Store file reference for processing
+        currentFile = file;
 
         // Show file info
         elements.fileInfo.textContent = `${validation.fileInfo.name} (${validation.fileInfo.sizeFormatted})`;
@@ -1148,8 +1188,10 @@
       if (transcriptController && transcriptController.transcript) {
         transcriptController.highlightCutRegions(cuts);
       }
-      // Enable/disable export button based on cuts availability
-      elements.exportBtn.disabled = cuts.length === 0;
+      // Enable/disable export buttons based on cuts availability
+      const hasCuts = cuts.length > 0;
+      elements.exportBtn.disabled = !hasCuts;
+      elements.exportAudioBtn.disabled = !hasCuts;
     };
 
     // Export button click handler
@@ -1157,6 +1199,107 @@
       const cuts = cutController.getCutRegions();
       const filename = elements.fileInput.files[0]?.name || 'audio.mp3';
       exportService.export(filename, cuts);
+    });
+
+    // Export Audio button click handler
+    elements.exportAudioBtn.addEventListener('click', async () => {
+      // Get cuts and validate
+      const cuts = cutController.getCutRegions();
+      if (cuts.length === 0) {
+        elements.processingStatus.textContent = 'No cuts to apply';
+        elements.processingStatus.style.display = 'block';
+        return;
+      }
+
+      // Get duration from audioService
+      const duration = audioService.getDuration();
+      if (!duration || duration <= 0) {
+        elements.processingStatus.textContent = 'Audio not loaded';
+        elements.processingStatus.style.display = 'block';
+        return;
+      }
+
+      // Validate file size for processing
+      const validation = validateForProcessing(currentFile);
+      if (!validation.valid) {
+        elements.processingStatus.textContent = validation.errors[0];
+        elements.processingStatus.style.display = 'block';
+        elements.processingStatus.style.background = '#f8d7da';
+        elements.processingStatus.style.borderColor = '#dc3545';
+        elements.processingStatus.style.color = '#721c24';
+        return;
+      }
+
+      // Disable buttons during processing
+      elements.exportBtn.disabled = true;
+      elements.exportAudioBtn.disabled = true;
+
+      // Show processing status
+      elements.processingStatus.style.display = 'block';
+      elements.processingStatus.style.background = '#e7f3ff';
+      elements.processingStatus.style.borderColor = '#007bff';
+      elements.processingStatus.style.color = '#004085';
+      elements.processingStatus.textContent = 'Preparing...';
+
+      // Progress callback
+      const onProgress = (progress) => {
+        if (progress.stage === 'loading') {
+          elements.processingStatus.textContent = `Loading FFmpeg: ${progress.progress}%`;
+        } else if (progress.stage === 'processing') {
+          elements.processingStatus.textContent = `Processing audio: ${progress.progress}%`;
+        } else if (progress.stage === 'complete') {
+          elements.processingStatus.textContent = 'Preparing download...';
+        }
+      };
+
+      try {
+        // Process audio
+        const result = await audioProcessingService.processAudio(
+          currentFile,
+          cuts,
+          duration,
+          onProgress
+        );
+
+        // Generate filename: originalname_edited_YYYYMMDD_HHMMSS.ext
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+        const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+        const extension = currentFile.name.split('.').pop();
+        const downloadFilename = `${baseName}_edited_${timestamp}.${extension}`;
+
+        // Create blob and trigger download
+        const blob = new Blob([result.data], { type: result.mimeType || 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = downloadFilename;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+
+        // Revoke URL after brief delay to ensure download starts
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        // Show success
+        elements.processingStatus.textContent = `Download started: ${downloadFilename}`;
+        elements.processingStatus.style.background = '#d4edda';
+        elements.processingStatus.style.borderColor = '#28a745';
+        elements.processingStatus.style.color = '#155724';
+
+      } catch (error) {
+        // Show error
+        elements.processingStatus.textContent = error.message;
+        elements.processingStatus.style.background = '#f8d7da';
+        elements.processingStatus.style.borderColor = '#dc3545';
+        elements.processingStatus.style.color = '#721c24';
+      } finally {
+        // Re-enable buttons
+        const hasCuts = cutController.getCutRegions().length > 0;
+        elements.exportBtn.disabled = !hasCuts;
+        elements.exportAudioBtn.disabled = !hasCuts;
+      }
     });
 
     // Cleanup on page unload
