@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-26)
 Phase: 8 of 10 (Service Integration & Download)
 Plan: Ready to plan Phase 8
 Status: Not started
-Last activity: 2026-01-27 — Phase 7 complete
+Last activity: 2026-01-28 — Completed quick task 006: update readme.md with latest updates and features and instructions
 
 Progress: [██████▓░░░] 70% (v1.0 complete, Phase 6-7 complete)
 
@@ -78,6 +78,12 @@ Recent decisions affecting v2.0 work:
 ### Pending Todos
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 006 | update readme.md with latest updates and features and instructions | 2026-01-28 | 6937100 | [006-update-readme-md-with-latest-updates-and](./quick/006-update-readme-md-with-latest-updates-and/) |
 
 ### Blockers/Concerns
 
