@@ -651,6 +651,59 @@
       color: #856404;
       font-size: 14px;
     }
+
+    .processing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .toggle-logs-btn {
+      padding: 4px 8px;
+      font-size: 12px;
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 4px;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .toggle-logs-btn:hover {
+      background: rgba(0,0,0,0.05);
+    }
+
+    .processing-progress-bar {
+      height: 8px;
+      background: #dee2e6;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #007bff;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .ffmpeg-logs {
+      max-height: 150px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 11px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .ffmpeg-log-line {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -670,7 +723,16 @@
     <div id="error"></div>
 
     <div id="compat-messages"></div>
-    <div id="processing-status" class="processing-status" style="display: none;"></div>
+    <div id="processing-status" class="processing-status" style="display: none;">
+      <div class="processing-header">
+        <span id="processing-text">Preparing...</span>
+        <button id="toggle-logs-btn" class="toggle-logs-btn">Show Logs</button>
+      </div>
+      <div class="processing-progress-bar">
+        <div id="processing-progress-fill" class="progress-fill"></div>
+      </div>
+      <div id="ffmpeg-logs" class="ffmpeg-logs" style="display: none;"></div>
+    </div>
     <div id="processing-estimate" class="processing-estimate" style="display: none;"></div>
     <button id="test-ffmpeg-btn" style="margin-top: 10px;">Test FFmpeg Loading</button>
 
@@ -768,6 +830,10 @@
       historyList: document.getElementById('history-list'),
       compatMessages: document.getElementById('compat-messages'),
       processingStatus: document.getElementById('processing-status'),
+      processingText: document.getElementById('processing-text'),
+      processingProgressFill: document.getElementById('processing-progress-fill'),
+      toggleLogsBtn: document.getElementById('toggle-logs-btn'),
+      ffmpegLogs: document.getElementById('ffmpeg-logs'),
       processingEstimate: document.getElementById('processing-estimate'),
       testFfmpegBtn: document.getElementById('test-ffmpeg-btn')
     };
@@ -971,6 +1037,14 @@
 
       return { minMinutes, maxMinutes, formatted };
     }
+
+    // Toggle logs button handler
+    let logsVisible = false;
+    elements.toggleLogsBtn.addEventListener('click', () => {
+      logsVisible = !logsVisible;
+      elements.ffmpegLogs.style.display = logsVisible ? 'block' : 'none';
+      elements.toggleLogsBtn.textContent = logsVisible ? 'Hide Logs' : 'Show Logs';
+    });
 
     // Test FFmpeg loading button
     elements.testFfmpegBtn.addEventListener('click', async () => {
@@ -1279,7 +1353,7 @@
       // Get cuts and validate
       const cuts = cutController.getCutRegions();
       if (cuts.length === 0) {
-        elements.processingStatus.textContent = 'No cuts to apply';
+        elements.processingText.textContent = 'No cuts to apply';
         elements.processingStatus.style.display = 'block';
         return;
       }
@@ -1287,7 +1361,7 @@
       // Get duration from audioService
       const duration = audioService.getDuration();
       if (!duration || duration <= 0) {
-        elements.processingStatus.textContent = 'Audio not loaded';
+        elements.processingText.textContent = 'Audio not loaded';
         elements.processingStatus.style.display = 'block';
         return;
       }
@@ -1295,13 +1369,19 @@
       // Validate file size for processing
       const validation = validateForProcessing(currentFile);
       if (!validation.valid) {
-        elements.processingStatus.textContent = validation.errors[0];
+        elements.processingText.textContent = validation.errors[0];
         elements.processingStatus.style.display = 'block';
         elements.processingStatus.style.background = '#f8d7da';
         elements.processingStatus.style.borderColor = '#dc3545';
         elements.processingStatus.style.color = '#721c24';
         return;
       }
+
+      // Clear logs from previous processing
+      elements.ffmpegLogs.innerHTML = '';
+      logsVisible = false;
+      elements.ffmpegLogs.style.display = 'none';
+      elements.toggleLogsBtn.textContent = 'Show Logs';
 
       // Show estimate before processing starts
       const estimate = estimateProcessingTime(duration, currentFile.size, browserCompat);
@@ -1318,16 +1398,31 @@
       elements.processingStatus.style.background = '#e7f3ff';
       elements.processingStatus.style.borderColor = '#007bff';
       elements.processingStatus.style.color = '#004085';
-      elements.processingStatus.textContent = 'Preparing...';
+      elements.processingText.textContent = 'Preparing...';
 
       // Progress callback
       const onProgress = (progress) => {
+        // Handle log messages
+        if (progress.stage === 'log') {
+          const logLine = document.createElement('div');
+          logLine.className = 'ffmpeg-log-line';
+          logLine.textContent = progress.message;
+          elements.ffmpegLogs.appendChild(logLine);
+          // Auto-scroll to bottom
+          elements.ffmpegLogs.scrollTop = elements.ffmpegLogs.scrollHeight;
+          return; // Don't process other updates for log messages
+        }
+
+        // Update progress bar
+        elements.processingProgressFill.style.width = `${progress.progress}%`;
+
+        // Update text
         if (progress.stage === 'loading') {
-          elements.processingStatus.textContent = `Loading FFmpeg: ${progress.progress}%`;
+          elements.processingText.textContent = `Loading FFmpeg: ${progress.progress}%`;
         } else if (progress.stage === 'processing') {
-          elements.processingStatus.textContent = `Processing audio: ${progress.progress}%`;
+          elements.processingText.textContent = `Processing audio: ${progress.progress}%`;
         } else if (progress.stage === 'complete') {
-          elements.processingStatus.textContent = 'Preparing download...';
+          elements.processingText.textContent = 'Preparing download...';
         }
       };
 
@@ -1362,7 +1457,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         // Show success
-        elements.processingStatus.textContent = `Download started: ${downloadFilename}`;
+        elements.processingText.textContent = `Download started: ${downloadFilename}`;
         elements.processingStatus.style.background = '#d4edda';
         elements.processingStatus.style.borderColor = '#28a745';
         elements.processingStatus.style.color = '#155724';
@@ -1371,13 +1466,13 @@
         // Check if this was a cancellation
         if (error.message.toLowerCase().includes('cancelled')) {
           // Cancelled - show as info, not error
-          elements.processingStatus.textContent = 'Processing cancelled';
+          elements.processingText.textContent = 'Processing cancelled';
           elements.processingStatus.style.background = '#e7f3ff';
           elements.processingStatus.style.borderColor = '#007bff';
           elements.processingStatus.style.color = '#004085';
         } else {
           // Actual error - show as error
-          elements.processingStatus.textContent = error.message;
+          elements.processingText.textContent = error.message;
           elements.processingStatus.style.background = '#f8d7da';
           elements.processingStatus.style.borderColor = '#dc3545';
           elements.processingStatus.style.color = '#721c24';
@@ -1386,6 +1481,8 @@
         // Hide cancel button and estimate
         elements.cancelBtn.style.display = 'none';
         elements.processingEstimate.style.display = 'none';
+        // Reset progress bar
+        elements.processingProgressFill.style.width = '0%';
         // Re-enable buttons
         const hasCuts = cutController.getCutRegions().length > 0;
         elements.exportBtn.disabled = !hasCuts;
@@ -1396,7 +1493,7 @@
     // Cancel Processing button click handler
     elements.cancelBtn.addEventListener('click', () => {
       if (audioProcessingService.cancel()) {
-        elements.processingStatus.textContent = 'Cancelling...';
+        elements.processingText.textContent = 'Cancelling...';
       }
     });
 

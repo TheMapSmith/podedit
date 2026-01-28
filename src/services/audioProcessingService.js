@@ -365,6 +365,11 @@ class AudioProcessingService {
         this.lastLogs.shift(); // Keep only last 50 messages
       }
 
+      // Emit log message to onProgress callback
+      if (onProgress) {
+        onProgress({ stage: 'log', message: message });
+      }
+
       // Parse time= progress from FFmpeg logs
       // Format: time=00:01:23.45
       const timeMatch = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
