@@ -98,7 +98,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 6: Foundation & Configuration** - Configure development environment for FFmpeg.wasm with browser compatibility
 - [x] **Phase 7: Core FFmpeg.wasm Processing** - Implement audio processing pipeline to apply cut regions
-- [ ] **Phase 8: Service Integration & Download** - Wire processing to existing services and enable file download
+- [x] **Phase 8: Service Integration & Download** - Wire processing to existing services and enable file download
 - [ ] **Phase 9: Error Handling & Polish** - Add robust error handling, cancellation, and progress feedback
 - [ ] **Phase 10: UAT & Browser Compatibility** - Validate processing works across browsers and file sizes
 
@@ -149,7 +149,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — Export audio button, processing integration, and download trigger
+- [x] 08-01-PLAN.md — Export audio button, processing integration, and download trigger
 
 ### Phase 9: Error Handling & Polish
 **Goal**: Processing failures are handled gracefully with clear error messages and user control
@@ -189,6 +189,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 5. Export & Finalization | v1.0 | 1/1 | Complete | 2026-01-23 |
 | 6. Foundation & Configuration | v2.0 | 2/2 | Complete | 2026-01-27 |
 | 7. Core FFmpeg.wasm Processing | v2.0 | 2/2 | Complete | 2026-01-27 |
-| 8. Service Integration & Download | v2.0 | 0/1 | Not started | - |
+| 8. Service Integration & Download | v2.0 | 1/1 | Complete | 2026-01-28 |
 | 9. Error Handling & Polish | v2.0 | 0/TBD | Not started | - |
 | 10. UAT & Browser Compatibility | v2.0 | 0/TBD | Not started | - |

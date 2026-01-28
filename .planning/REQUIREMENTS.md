@@ -135,9 +135,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROC-02 | Phase 7 (v2.0) | Complete |
 | PROC-03 | Phase 7 (v2.0) | Complete |
 | PROC-04 | Phase 7 (v2.0) | Complete |
-| EXPORT-03 | Phase 8 (v2.0) | Pending |
-| EXPORT-04 | Phase 8 (v2.0) | Pending |
-| EXPORT-05 | Phase 8 (v2.0) | Pending |
+| EXPORT-03 | Phase 8 (v2.0) | Complete |
+| EXPORT-04 | Phase 8 (v2.0) | Complete |
+| EXPORT-05 | Phase 8 (v2.0) | Complete |
 
 **Coverage:**
 - v1.0 requirements: 20 total (all complete)
