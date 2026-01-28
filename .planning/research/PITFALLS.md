@@ -1,255 +1,258 @@
 # Pitfalls Research
 
-**Domain:** Browser-based FFmpeg.wasm audio processing for podcast files (v2.0 Extension)
-**Researched:** 2026-01-26
+**Domain:** Browser-based podcast audio editor - UX Enhancements (v3.0 Extension)
+**Researched:** 2026-01-28
 **Confidence:** HIGH
 
-**Note:** This document extends v1.0 pitfalls research with FFmpeg.wasm-specific pitfalls for v2.0 in-browser audio processing. See git history for v1.0 pitfalls (AudioContext, VBR seek, transcription API, cut point management).
+**Note:** This document extends v1.0 (transcript navigation) and v2.0 (FFmpeg.wasm processing) pitfalls research with v3.0 UX-specific pitfalls: preview playback, search highlighting, cut region highlighting, and dark theme. See git history for previous version pitfalls.
 
-## Critical Pitfalls - FFmpeg.wasm Specific
+## Critical Pitfalls - v3.0 UX Features
 
-### Pitfall 1: Memory Exhaustion with Large Podcast Files
+### Pitfall 1: Preview Playback State Leakage
 
 **What goes wrong:**
-Browser tabs freeze or crash when processing 45-90 minute podcast files (50-150 MB). Users see "Out of Memory" errors or the browser becomes unresponsive during processing. The typical failure point is around 100-150 MB files, well within the range of podcast files PodEdit handles.
+Preview mode (skipping cuts) corrupts the state of normal playback mode, causing seek operations to behave incorrectly or audio to skip unexpectedly when switching back to normal mode. Multiple audio.currentTime assignments in rapid succession can lead to race conditions where the audio element ends up at an unpredictable position.
 
 **Why it happens:**
-FFmpeg.wasm loads entire audio files into WebAssembly memory (2 GB hard limit) and creates additional copies during processing. A 150 MB input file can balloon to 400-600 MB in memory when FFmpeg creates intermediate processing buffers. Multiple sequential operations without cleanup accumulate memory usage linearly, never releasing it even after `ffmpeg.exit()` in some cases.
+The HTML5 Audio element has single state - there's no native "mode" concept. When implementing preview playback that programmatically seeks past cut regions, developers often maintain separate state tracking for "preview mode" vs "normal mode" but forget to fully reset the audio element state when switching. Rapid currentTime modifications during preview skip operations can stack up, with the audio element still processing earlier seek requests when new ones arrive.
 
 **How to avoid:**
-1. **Implement file size validation** before attempting processing (reject files >100 MB or warn users about potential crashes)
-2. **Use optimized FFmpeg commands** with explicit codec settings and appropriate bitrates to minimize intermediate buffer sizes
-3. **Clean up virtual filesystem** explicitly after each operation using `FS('unlink', filename)` before calling `ffmpeg.exit()`
-4. **Use single FFmpeg instance** per session rather than creating/destroying multiple instances
-5. **Consider chunking strategy** for files >100 MB: split into segments, process separately, concatenate results (adds complexity but avoids memory limits)
+- Create explicit state machine with NORMAL and PREVIEW modes
+- On mode switch, pause audio and clear any pending seeks
+- Implement debouncing for rapid seek operations (minimum 50-100ms between seeks)
+- Store "last known good position" before entering preview mode to restore on exit
+- Use seeking/seeked event listeners to track when seeks complete before allowing next operation
+- Add state validation before every play() call to ensure mode matches intended behavior
 
 **Warning signs:**
-- Browser DevTools shows memory usage climbing above 1.5 GB during processing
-- Processing takes >2 minutes for a 60-minute podcast
-- Users report tab crashes with files that played back fine in v1.0
-- Memory usage doesn't decrease after processing completes
+- Audio jumps to unexpected positions after exiting preview
+- Click-to-seek from transcript behaves differently in preview vs normal mode
+- Console errors about "The play() request was interrupted"
+- Preview mode works initially but breaks after several mode switches
+- Seeking during preview causes audio to freeze or stutter
 
 **Phase to address:**
-Phase 1 (Foundation) - File size validation and memory monitoring must be in place from the start. Phase 2 (Core Processing) - Optimize FFmpeg commands and implement proper cleanup. Phase 3 (Optimization) - Add chunking strategy if needed based on Phase 2 results.
+Phase 2: Preview Playback Implementation - Must be core architectural decision from start
 
 ---
 
-### Pitfall 2: Missing Cross-Origin Isolation Headers
+### Pitfall 2: Conflicting Highlight Systems Causing DOM Thrashing
 
 **What goes wrong:**
-FFmpeg.wasm fails to load with "SharedArrayBuffer is not defined" error. Multi-threaded version (which provides ~2x speedup) is completely unavailable. Users see cryptic errors about security policies without understanding the root cause.
+mark.js search highlighting and cut region highlighting fight for control of the same word spans, causing performance degradation, visual glitches (text flickering between styles), and memory leaks. Each re-render creates new DOM nodes without cleaning up old ones, eventually causing browser slowdown with long transcripts (45+ minute podcasts = 5000+ words).
 
 **Why it happens:**
-SharedArrayBuffer (required for FFmpeg.wasm multi-threading) is disabled by default in browsers due to Spectre vulnerabilities. Browsers require explicit HTTP headers to enable it:
-- `Cross-Origin-Embedder-Policy: require-corp`
-- `Cross-Origin-Opener-Policy: same-origin`
-
-PodEdit runs on a local dev server which may not send these headers by default. Many developers discover this only after integration is complete.
+mark.js wraps matching text in `<mark>` tags, restructuring the DOM. Cut region highlighting adds CSS classes to existing word spans. When mark.js runs, it destroys the existing span structure, removing cut region classes. When cut highlighting re-runs, it can't find the mark.js wrapped elements. This creates a cycle where each system tries to "fix" what the other broke. Developers don't realize mark.js creates persistent DOM nodes that must be explicitly cleaned up with unmark().
 
 **How to avoid:**
-1. **Configure dev server headers immediately** in Phase 1, not after FFmpeg integration
-2. **Detect SharedArrayBuffer availability** on app load and show clear error message if missing
-3. **Provide single-thread fallback** (@ffmpeg/core instead of @ffmpeg/core-mt) that works without cross-origin isolation
-4. **Document header requirements** in README for anyone running the dev server
-5. **Add startup diagnostics** that verify cross-origin isolation status and log clear instructions if missing
+- Use mark.js with `element: "span"` and `className: "search-highlight"` to match existing transcript structure
+- Never let mark.js wrap across word boundaries - use `accuracy: "exactly"` option
+- Call `instance.unmark()` before every new mark() call to prevent DOM accumulation
+- Implement CSS specificity hierarchy: base word styles < cut-region class < search-highlight class
+- Use data attributes (data-in-cut="true") instead of classes for cut regions to avoid CSS conflicts
+- For mark.js, use `separateWordSearch: false` to prevent partial word matches that break word boundaries
+- Measure DOM node count before/after highlighting operations in dev mode to detect leaks
 
 **Warning signs:**
-- `typeof SharedArrayBuffer === 'undefined'` in browser console
-- FFmpeg.wasm loads but crashes during multi-thread operations
-- Security warnings about cross-origin policies in DevTools
-- FFmpeg processing works in Firefox but not Chrome (different header enforcement)
+- Transcript text flickers when searching while cuts are visible
+- Search highlighting disappears when adding/removing cut regions
+- Browser DevTools shows DOM node count continuously increasing
+- Page becomes sluggish after 10-20 search operations
+- Cut region shading randomly disappears or reappears
+- Memory usage climbs steadily in browser task manager
+- Search no longer highlights words that are inside cut regions
 
 **Phase to address:**
-Phase 1 (Foundation) - Server configuration and fallback detection must be in place before FFmpeg.wasm integration. This is a hard requirement that blocks all downstream work.
+Phase 3: Search Implementation - Critical integration point where both systems must coexist
 
 ---
 
-### Pitfall 3: iOS/Safari Incompatibility
+### Pitfall 3: Dark Theme FOUC (Flash of Unstyled Content)
 
 **What goes wrong:**
-FFmpeg.wasm multi-threading doesn't work on iOS Safari (as of iOS 17+). Users on iPhones/iPads see errors or extremely slow processing (single-thread fallback is 2x slower). This affects a significant portion of podcast creators who work on iPads.
+Users see a blinding flash of light theme before dark theme loads, especially jarring for users with photosensitivity or using the app at night. This happens on every page refresh, making the app feel unprofessional and potentially causing eye strain. In worst cases, the flash can trigger headaches or discomfort for users with light sensitivity.
 
 **Why it happens:**
-Safari on iOS does not support SharedArrayBuffer in Web Workers, even with correct cross-origin isolation headers. This is a deliberate limitation by Apple, not a configuration issue. Single-thread version works but is significantly slower (2x) and may still hit memory limits with large files.
+JavaScript runs after HTML parsing, so theme detection from localStorage or system preferences happens too late. The browser renders the page with default (light) styles, then JavaScript loads, reads the preference, and updates the theme - but the user already saw the flash. This is a fundamental race condition between HTML parsing and JavaScript execution.
 
 **How to avoid:**
-1. **Detect iOS Safari on app load** and show warning about performance limitations
-2. **Implement single-thread version** as automatic fallback for iOS/Safari
-3. **Provide server-side processing option** for iOS users (out of scope for v2.0, but document as known limitation)
-4. **Test explicitly on iOS Safari** during development, not just Chrome/Firefox desktop
-5. **Set realistic expectations** in UI: "Processing may take 5-10 minutes on iOS devices"
+- Add inline `<script>` in `<head>` BEFORE any CSS links
+- Script should read localStorage and immediately set data-theme attribute on `<html>`
+- Use blocking synchronous script (no async/defer) to prevent any rendering before theme is set
+- CSS should use `[data-theme="dark"]` selectors, not JavaScript-applied classes
+- Provide fallback: prefers-color-scheme media query for first-time visitors
+- Minimize inline script size (< 0.5KB) to avoid performance impact
+- Set theme attribute on `<html>` not `<body>` to cover all elements
+
+Example inline script:
+```html
+<head>
+  <script>
+    (function(){
+      const theme = localStorage.getItem('theme') ||
+                   (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+```
 
 **Warning signs:**
-- User reports work on desktop but not iPad/iPhone
-- FFmpeg.wasm loads but progress stalls indefinitely on mobile Safari
-- Single-thread version works but times out on larger files
-- Memory errors occur at lower file sizes on iOS vs desktop
+- White flash visible on page load in dark mode
+- Users report eye strain or mention the flash in feedback
+- Theme toggle works but page load shows wrong theme briefly
+- Dark theme delay varies by network speed (indicates late CSS loading)
+- Testing in slow 3G network conditions makes flash more obvious
 
 **Phase to address:**
-Phase 1 (Foundation) - Browser detection and fallback logic. Phase 5 (UAT) - Explicit iOS testing with real devices. Document limitation if unresolvable in v2.0 scope.
+Phase 4: Dark Theme Implementation - Must be implemented correctly from the start, not added later
 
 ---
 
-### Pitfall 4: Progress Indication Failure
+### Pitfall 4: Preview Skip Logic Desynchronizing with Cut Region Updates
 
 **What goes wrong:**
-Users see no progress feedback during 5-10 minute processing operations and assume the app has frozen. They refresh the page, killing the in-progress work. Progress events return negative values or don't fire at all, making accurate progress bars impossible.
+When user adds, deletes, or modifies cut regions while preview playback is running, the preview skip logic doesn't update its internal cut list. Audio continues playing through newly added cuts or skips regions that were deleted, making preview unreliable. In extreme cases, playback gets stuck in infinite seek loops trying to skip to positions that no longer make sense.
 
 **Why it happens:**
-FFmpeg.wasm's progress event system is experimental and unreliable. Progress only works when input and output duration are identical (not true for cut operations). The progress callback receives time values but they're often negative or nonsensical. Long-running operations provide no feedback, looking identical to hung processes.
+Preview playback typically uses a timeupdate or requestAnimationFrame loop that checks "should I skip now?" against a snapshot of cut regions. When cut regions change, the preview logic isn't notified to refresh its snapshot. The disconnect between CutController state and preview playback state means they operate on different versions of truth. Developers assume state changes automatically propagate, but event listeners aren't wired up correctly.
 
 **How to avoid:**
-1. **Use indeterminate progress indicators** (spinner) rather than percentage-based progress bars
-2. **Parse FFmpeg console output** for "time=" and "speed=" fields instead of relying on progress events
-3. **Show estimated time warnings** before processing: "This may take 5-10 minutes for a 60-minute podcast"
-4. **Display FFmpeg console logs** in real-time so users see activity even without progress percentage
-5. **Add "Cancel" button** that calls `ffmpeg.exit()` so users aren't trapped in long operations
-6. **Implement timeout detection** - if no console output for >60 seconds, warn user of potential hang
+- Preview playback must subscribe to CutController's onCutListChanged callback
+- When cuts change during preview, immediately re-evaluate current position against new cuts
+- If currently playing through a newly-added cut, trigger immediate skip
+- If positioned in a now-deleted cut region, do nothing (position is now valid)
+- Provide visual feedback: "Preview updated - X cuts applied" toast notification
+- Consider pausing preview briefly when cuts change to prevent jarring jumps
+- Debounce cut updates if rapid edits are happening (batch within 200ms window)
 
 **Warning signs:**
-- Progress events return values like -999999 or >100%
-- Progress callback never fires but processing completes successfully
-- User testing reveals confusion: "I thought it was frozen"
-- Processing succeeds but users refresh partway through
+- Preview keeps playing through cuts that were just added
+- Deleting a cut doesn't restore that section in preview playback
+- Preview works on initial load but breaks after first edit
+- Console shows repeated "Skip to X" logs even when no cuts exist
+- Audio freezes or stutters when editing cuts during preview
+- Preview skip logic uses stale getCutRegions() snapshot
 
 **Phase to address:**
-Phase 2 (Core Processing) - Implement indeterminate progress UI immediately. Phase 3 (Optimization) - Add log parsing and estimated time warnings based on file size.
+Phase 2: Preview Playback Implementation - Architectural decision for state synchronization
 
 ---
 
-### Pitfall 5: Virtual Filesystem Memory Leaks
+### Pitfall 5: mark.js Case Sensitivity Configuration Ignored
 
 **What goes wrong:**
-Memory usage increases with each processing operation and never decreases, even after files are "deleted" from the virtual filesystem. After 3-4 processing attempts, the browser runs out of memory and crashes. Users who iterate on edits (common workflow: process, listen, adjust cuts, process again) hit this frequently.
+Search highlighting fails to find obvious matches or finds too many false positives because case sensitivity isn't configured correctly. Users search for "podcast" but "Podcast" at sentence start isn't highlighted, or vice versa. This makes search feel broken and unreliable, especially in transcripts where proper nouns and sentence starts are common.
 
 **Why it happens:**
-FFmpeg.wasm uses Emscripten's MEMFS (memory filesystem) to store files. Calling `FS('writeFile', 'input.mp3', data)` copies the entire file into WebAssembly memory. Even after `FS('unlink', 'input.mp3')`, the memory isn't immediately freed. Multiple write/process/read cycles accumulate memory without explicit cleanup.
+mark.js defaults vary by version, and the caseSensitive option interacts with accuracy and diacritics options in non-obvious ways. Developers assume case-insensitive search is default (it's not always). The accuracy option can override case behavior in unexpected ways. Testing with lowercase-only queries misses the issue until users search with mixed case.
 
 **How to avoid:**
-1. **Unlink all files explicitly** after reading results: `FS('unlink', 'input.mp3')` and `FS('unlink', 'output.mp3')`
-2. **Call `ffmpeg.exit()` after each processing operation** to destroy the instance and reclaim memory
-3. **Reload FFmpeg instance** before next operation: `await ffmpeg.load()` after each exit
-4. **Monitor virtual filesystem** with `FS('readdir', '/')` in debug builds to detect leaked files
-5. **Implement "process once" pattern** rather than allowing unlimited iterations without page refresh
-6. **Consider full page reload** after 2-3 processing attempts as nuclear option for memory reclamation
+- Explicitly set `caseSensitive: false` in mark.js options - never rely on defaults
+- Test search with these cases: "word", "Word", "WORD", "WoRd"
+- Set `accuracy: "exactly"` to prevent matching within larger words (searching "ear" shouldn't match "search")
+- Consider `synonyms` option for common variations users might search
+- Add `wildcards: "disabled"` to prevent special characters breaking searches
+- Document search behavior in UI: "Search is case-insensitive" tooltip
 
 **Warning signs:**
-- DevTools memory profiler shows WebAssembly memory growing monotonically
-- Second/third processing attempt slower than first
-- `FS('readdir', '/')` shows files that should have been deleted
-- Browser performance degrades after multiple processing operations
-- Memory doesn't decrease after `ffmpeg.exit()`
+- Bug reports: "Search doesn't work" with examples that should match
+- Search finds "test" but not "Test" or vice versa
+- Search matches change when transcript is regenerated (case variations)
+- User testing reveals confusion about what search will find
+- Technical words (API names, acronyms) aren't found consistently
 
 **Phase to address:**
-Phase 2 (Core Processing) - Implement explicit cleanup pattern from the start. Phase 3 (Optimization) - Add memory monitoring and defensive page reload if memory exceeds threshold.
+Phase 3: Search Implementation - Configuration must be correct from first implementation
 
 ---
 
-### Pitfall 6: FFmpeg Command Construction Errors
+### Pitfall 6: Audio Element Seek Accuracy Issues with VBR Files
 
 **What goes wrong:**
-FFmpeg commands that work perfectly in native FFmpeg fail silently or crash in FFmpeg.wasm. Cut operations produce corrupted audio with pops/clicks at cut boundaries. Multi-segment cuts result in sync drift where the output duration doesn't match expectations.
+Seeking to precise timestamps (from transcript word clicks or preview skip operations) lands at slightly wrong positions, especially in Variable Bit Rate (VBR) MP3 files. User clicks word at 125.5s, audio seeks to 125.1s or 126.2s, creating transcript/audio mismatch. Preview skip logic tries to skip 3.5s cut region but only skips 3.1s, playing 0.4s of cut audio. Errors compound over multiple skips, making preview increasingly inaccurate.
 
 **Why it happens:**
-FFmpeg.wasm doesn't support all FFmpeg features (no RTSP, limited codec support, some filters unavailable). Path syntax differs from native FFmpeg (`/input.mp3` not `./input.mp3`). Audio concatenation without re-encoding (`-c copy`) can create sync issues at segment boundaries. Complex filter graphs work inconsistently in WebAssembly environment.
+VBR MP3 encoding doesn't have fixed frame boundaries, making precise seeking impossible. The audio.currentTime property can only seek to actual frame boundaries, which don't align with requested times. Browser implementations differ: Firefox seeks to 19.999s when you request 20.0s due to internal rounding. The timeupdate event fires at 200-250ms intervals, too slow to catch and correct these errors. Seeking accuracy varies by codec: MP3 VBR worst, M4A/AAC better, WAV best.
 
 **How to avoid:**
-1. **Test FFmpeg commands in browser context** early, not just in native FFmpeg CLI
-2. **Use simple, well-tested command patterns** rather than complex filter graphs
-3. **Always re-encode audio** at segment boundaries to prevent sync issues (`-c:a libmp3lame` not `-c copy`)
-4. **Use absolute paths** in virtual filesystem (`/input.mp3` not `input.mp3` or `./input.mp3`)
-5. **Verify codec availability** before constructing commands (mp3=lame, aac=fdk-aac, opus=opus all supported)
-6. **Add audio fade-in/fade-out** at cut boundaries to prevent clicks (afade filter)
-7. **Start with minimal command** and add complexity incrementally with testing at each step
+- Accept inherent imprecision: add 0.1-0.2s tolerance to all time comparisons
+- For preview skip: seek to cut.endTime + 0.1s to ensure past the boundary
+- For transcript highlighting: consider word active if within 0.3s of its timestamp
+- Document in getting-started: "For best accuracy, use M4A or WAV formats"
+- Don't compound errors: calculate each skip from absolute time, not relative to last position
+- Use audio.seekable.length to verify seek target is in valid range before seeking
+- Test with actual podcast files (typically VBR) not test fixtures (often CBR)
 
 **Warning signs:**
-- Command succeeds but output duration is wrong (e.g., 30-minute output for 60-minute input with 30 minutes of cuts)
-- Audible pops/clicks at cut boundaries
-- FFmpeg console shows warnings about "Non-monotonic DTS" or sync issues
-- Output file plays but seeking is broken
-- Commands work in native FFmpeg but fail in FFmpeg.wasm
+- Preview skips audio but still plays 0.2-0.5s of cut content
+- Transcript highlight is off by one word during playback
+- Seeking to same timestamp twice lands at slightly different positions
+- Skip behavior varies across different audio files (codec dependent)
+- User reports: "Audio doesn't match transcript exactly"
+- Testing with WAV files passes, MP3 files fail
 
 **Phase to address:**
-Phase 2 (Core Processing) - Research and test command patterns with sample files before implementing full workflow. Create test harness with known-good inputs/outputs. Phase 5 (UAT) - Explicit testing of edge cases (many small cuts, cuts at segment boundaries, full-file operations).
+Phase 2: Preview Playback Implementation - Must account for imprecision in skip logic
 
 ---
 
-### Pitfall 7: FFmpeg.wasm Load Time and Bundle Size
+### Pitfall 7: requestAnimationFrame Audio Sync Precision Limitations
 
 **What goes wrong:**
-Initial FFmpeg.wasm load takes 10-30 seconds on slow connections, blocking all processing. Users see blank screen or frozen UI while 20+ MB of WebAssembly downloads. Multi-threaded version (@ffmpeg/core-mt) is even larger and slower to load.
+Preview skip checks running on requestAnimationFrame (60fps = 16.6ms intervals) still miss short cuts or create noticeable audio glitches. The timeupdate event is too coarse (250ms), but RAF still doesn't provide sample-accurate timing for audio. Transcript highlighting lags behind audio playback by 100-300ms, making the sync feel "off".
 
 **Why it happens:**
-FFmpeg.wasm core is ~20 MB uncompressed (~5 MB gzipped), and must be downloaded and compiled before any processing can occur. Multi-thread version is larger due to additional worker code. Loading happens on first `ffmpeg.load()` call, often triggered when user clicks "Process" button, creating unexpected delay.
+HTML5 audio's currentTime updates only 25 times per second (40ms intervals) in Firefox audio-only playback, regardless of how frequently you check it. RAF runs at 60fps but audio.currentTime doesn't update that fast, so you're polling the same value multiple times. Preview skip logic checking at 16.6ms intervals can't catch a 0.5s cut that starts between frames. The disconnect between visual frame rate (60fps) and audio update rate (25fps) creates unavoidable lag.
 
 **How to avoid:**
-1. **Lazy load FFmpeg.wasm** only when user clicks "Process" button, not on app init
-2. **Show explicit loading UI** with progress: "Downloading processing engine (5 MB)... This happens once per session"
-3. **Use single-thread version** (@ffmpeg/core) unless multi-thread performance is critical (saves size and load time)
-4. **Cache aggressively** via service worker so subsequent sessions load instantly
-5. **Consider CDN hosting** for core files rather than bundling (faster delivery, browser caching across sites)
-6. **Add "preload" option** in settings: load FFmpeg in background while user reviews transcript
+- Accept 40-50ms granularity as best-case for HTML5 audio synchronization
+- For preview skip: don't try to skip cuts shorter than 0.3s (two audio frames)
+- For transcript highlight: add 50ms lookahead to compensate for update lag
+- Use RAF for smooth UI updates, but don't expect sample-accurate audio timing
+- Consider Web Audio API for critical timing (more complex, better precision)
+- Document limitation: "Preview may play brief portions (<0.3s) of short cuts"
+- Test skip behavior with cuts of varying lengths: 0.2s, 0.5s, 1.0s, 5.0s
 
 **Warning signs:**
-- User clicks "Process" and sees 30-second delay with no feedback
-- DevTools Network tab shows 20+ MB download blocking processing
-- Users report "app freezes when I try to process"
-- Load time varies dramatically based on connection speed
-- Core-mt version loads but provides minimal speedup benefit
+- Short cuts (< 0.5s) play audibly during preview
+- Transcript highlight appears to lag behind audio
+- Skip logic fires but audio continues playing for 100-200ms
+- Rapid consecutive cuts cause audio stuttering
+- Skip behavior inconsistent between files (codec-dependent timing)
 
 **Phase to address:**
-Phase 1 (Foundation) - Implement lazy loading and loading UI before integration. Phase 3 (Optimization) - Add service worker caching and preload option based on user feedback.
+Phase 2: Preview Playback Implementation - Set realistic expectations for timing precision
 
 ---
 
-## Critical Pitfalls - v1.0 (Retained for Reference)
-
-### Pitfall 8: Audio Context Creation Outside User Gesture
+### Pitfall 8: WCAG Contrast Violations in Dark Theme
 
 **What goes wrong:**
-Browser autoplay policies block audio playback. The AudioContext is created in a "suspended" state, resulting in silent playback or no playback at all. This is the #1 reason audio "doesn't work" in web apps.
+Dark theme passes visual review but fails accessibility standards. Low-contrast text is hard to read, especially for users with low vision. Legal compliance risk (ADA 2024 Title II mandates WCAG 2.1 AA by 2026). Color contrast violations affect 79.1% of websites - it's the #1 accessibility issue.
 
 **Why it happens:**
-Developers create the AudioContext at module/component initialization time (outside user interaction) because it feels natural to set up resources early. Modern browsers require user interaction before audio can play to prevent unwanted audio on page load.
+Developers choose colors aesthetically without testing contrast ratios. Pure black (#000000) backgrounds seem ideal but cause eye strain and halation. Gray text on dark backgrounds frequently falls below WCAG 4.5:1 minimum. The dark theme aesthetic encourages low-contrast "subtle" designs that violate accessibility standards. Browser DevTools don't automatically flag contrast issues unless you explicitly check.
 
 **How to avoid:**
-- Create AudioContext inside a click/touch event handler
-- OR check `audioCtx.state === "suspended"` and call `audioCtx.resume()` inside user gesture
-- Test in actual browsers, not just localhost (policies vary by browser and site engagement)
+- Use softer blacks: #1a1a1a or #0d1117 instead of #000000
+- Test ALL text with browser DevTools color picker contrast ratio checker
+- Require 4.5:1 minimum for normal text, 3:1 for large text (18pt+)
+- Test with actual low-vision simulation tools, not just eyeballing
+- Use semantic color tokens: --text-primary, --text-secondary with tested values
+- Mark.js search highlights must be visible in both themes (test yellow on dark)
+- Test cut region shading: must show distinction without relying solely on color
 
 **Warning signs:**
-- Audio works in dev but not production
-- Console shows "The AudioContext was not allowed to start"
-- `audioCtx.state` returns "suspended" instead of "running"
+- DevTools accessibility panel shows contrast warnings
+- Text difficult to read in dim lighting conditions
+- Users report difficulty reading certain UI elements
+- Subtle differences (like cut shading) invisible to some users
+- Testing on different monitors shows inconsistent visibility
 
 **Phase to address:**
-v1.0 Phase 1 (Core Playback) - Already addressed in v1.0, retained for reference.
-
----
-
-### Pitfall 9: Variable Bitrate (VBR) Audio Seek Inaccuracy
-
-**What goes wrong:**
-When seeking to a specific timestamp (e.g., clicking a word in the transcript), playback starts at the wrong position - often seconds off from the intended point. Users click "2:34" and hear audio from "2:31" or "2:37". This breaks the core value proposition of transcript-synced playback.
-
-**Why it happens:**
-HTML5 audio elements have poor seek accuracy with Variable Bitrate (VBR) MP3 files. The browser estimates byte position from timestamp using average bitrate, which is incorrect for VBR. Additionally, `audio.currentTime` has low precision (3ms in Chrome due to Spectre mitigations) and seeking often lands at frame boundaries, not exact timestamps.
-
-**How to avoid:**
-- Use Constant Bitrate (CBR) audio files or convert VBR to CBR for uploads
-- Add 100-200ms buffer to seek targets (seek slightly before target timestamp)
-- Use Web Audio API's `AudioContext.currentTime` (higher precision) instead of HTML5 audio for critical timing
-- Test with actual podcast files (many are VBR) not just test audio
-- Display waveform/visual feedback so users can see if position is correct
-
-**Warning signs:**
-- User reports "transcript doesn't match audio"
-- Seek accuracy degrades on longer files
-- Works fine with some files, fails with others (VBR vs CBR)
-- `audio.currentTime` returns values like 19.999000549316406 instead of 20.0
-
-**Phase to address:**
-v1.0 Phase 1 (Core Playback) - Already addressed in v1.0, retained for reference.
+Phase 4: Dark Theme Implementation - Test contrast before considering theme complete
 
 ---
 
@@ -259,34 +262,26 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Skip cross-origin isolation headers, use single-thread only | Faster development setup | 2x slower processing, poor UX for large files | Never - headers are trivial to configure |
-| No file size validation | Simpler code | Users experience crashes, bad reputation | Never - validation is 5 lines of code |
-| Skip explicit memory cleanup | Code appears to work | Memory leaks accumulate, crashes on iteration | Never - cleanup is essential |
-| Use complex filter graphs without testing | Reuse existing FFmpeg knowledge | Silent failures, corrupted output | Never - test in browser context first |
-| Skip iOS Safari testing | Faster development cycle | Unknown production behavior, user complaints | Early development only (Phase 1-2) |
-| Hard-code FFmpeg commands | Faster initial implementation | Brittle to format changes, hard to debug | MVP only, refactor in Phase 3 |
-| Percentage-based progress bar | Better-looking UI | Broken/negative values, user confusion | Never - use indeterminate spinner |
-| Load FFmpeg on app init | Slightly better perceived performance | Wastes bandwidth for users who don't process | Maybe - if >80% of users process audio |
-| Skip undo/redo in MVP | Faster initial development | Must refactor state management later, user frustration | Never - implement from start (v1.0) |
-| No autosave/persistence | Simpler architecture | Lost user work, bad reputation | Never for tools with >5 min sessions (v1.0) |
-| Client-side waveform generation | No server needed | Memory crashes, slow load times | Only for <10 min audio files (v1.0) |
+| Using setTimeout instead of requestAnimationFrame for preview skip checks | Simpler code, faster implementation | Imprecise timing (setTimeout throttled to 1000ms in background tabs), higher CPU usage, preview breaks when tab inactive | Never - RAF costs ~5 lines more |
+| Single CSS class toggle for cut highlighting instead of data attributes | Fewer characters, familiar pattern | Conflicts with mark.js classes, harder to debug specificity issues, can't distinguish "highlighted because cut" vs "highlighted because search" | Only in Phase 1 prototype |
+| Storing theme preference in component state instead of localStorage | Fewer lines, no async storage | Theme doesn't persist across sessions, flash on every page load | Never - localStorage is 2 lines |
+| Not unmark() before searching again | Saves 1 function call, slightly faster | DOM accumulates `<mark>` wrappers, memory leaks, performance degrades over time | Never - essential cleanup |
+| Debouncing cut highlight updates by 500ms+ | Reduces re-render frequency, better perceived performance | User sees stale highlights for half a second after adding cut, feels laggy | Acceptable if < 200ms debounce |
+| Using audio.currentTime directly instead of checking audio.seekable API | One less API to learn, works most of the time | Rare seeking crashes in some codecs, hard-to-reproduce bugs | Acceptable in MVP, must fix before v3.0 |
+| Skipping WCAG contrast testing in dark theme | Faster theme development, subjective preferences | Accessibility violations (79.1% of sites), legal compliance risk (ADA 2024 updates), unusable for low-vision users | Never - tools auto-check contrast |
 
 ## Integration Gotchas
 
-Common mistakes when connecting to FFmpeg.wasm and handling browser constraints.
+Common mistakes when connecting components for v3.0 features.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| FFmpeg.wasm loading | Call `ffmpeg.load()` synchronously or without await | Always `await ffmpeg.load()` and wrap in try-catch for error handling |
-| File writing | Pass File object directly to FS | Convert to ArrayBuffer first: `await file.arrayBuffer()` then `FS('writeFile', name, new Uint8Array(buffer))` |
-| File reading | Assume output file exists after error | Check `FS('readdir', '/')` before reading, handle missing file case |
-| Progress events | Use progress values directly in UI | Validate progress values (check for negative/NaN), use indeterminate UI as fallback |
-| Memory cleanup | Call `ffmpeg.exit()` and assume memory is freed | Must also unlink all virtual files before exit: `FS('unlink', filename)` |
-| Cross-origin isolation | Assume headers work because SharedArrayBuffer exists | Test multi-threading explicitly, SharedArrayBuffer presence doesn't guarantee worker support |
-| Command construction | Use relative paths like `./input.mp3` | Always use root-relative paths: `/input.mp3` or `input.mp3` (no `./`) |
-| Worker threads | Create multiple FFmpeg instances for concurrent processing | FFmpeg.wasm doesn't support concurrent operations, use single instance with sequential processing |
-| Whisper API | No retry logic for 429 rate limits | Exponential backoff with max 5 retries, wait time from Retry-After header (v1.0) |
-| Whisper API | Sending files >25 MB | Check size first, chunk if needed, or compress to 16kHz mono (v1.0) |
+| TranscriptController + mark.js | Passing entire transcript container to mark.js, allowing it to wrap cut-region spans | Pass mark.js `exclude: ['.in-cut-region']` option to avoid cut spans, OR use mark.js on text content only before creating spans |
+| CutController + Preview Playback | Preview subscribes to state once at initialization, misses later cut changes | Subscribe to onCutListChanged in preview setup, re-bind on every getCutRegions() call |
+| AudioService + Preview Skip Logic | Calling seek() in rapid succession (< 50ms apart) during multiple consecutive cuts | Check audio.seeking === false before next seek, queue seeks if still seeking |
+| PlayerController + Preview Mode | Sharing same PlayerController instance for both normal and preview playback | Create separate preview state or use mode flag checked before every seek operation |
+| Dark Theme + mark.js Highlights | mark.js default yellow highlight invisible on dark background | Define mark.js className, provide CSS for both `[data-theme="light"]` and `[data-theme="dark"]` contexts |
+| Search Input + Real-time Highlighting | Calling mark() on every keystroke, including arrow keys and modifiers | Debounce by 300ms, filter out non-character keys, only mark if search.length > 2 |
 
 ## Performance Traps
 
@@ -294,15 +289,12 @@ Patterns that work at small scale but fail as usage grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Loading full file into memory at once | Works for 5-min podcasts, crashes on 90-min | Implement file size validation and chunking strategy | >100 MB files (~60 min at typical podcast bitrates) |
-| Reusing same FFmpeg instance without cleanup | First processing works, second/third crash | Call `ffmpeg.exit()` and reload after each processing operation | After 2-3 processing attempts |
-| Accumulating files in virtual filesystem | Processing succeeds but memory grows | Explicitly unlink all input/output files after reading results | 3-4 processing operations |
-| Using multi-thread without SharedArrayBuffer fallback | Works in development, fails in production | Detect SharedArrayBuffer and fall back to single-thread | First iOS user or misconfigured server |
-| Complex filter chains without testing | Small test files work, large files timeout | Test with real-world file sizes (50-150 MB) during development | Files >50 MB or >30 min duration |
-| No progress indication | Works for fast operations, users confused on slow ones | Always show indeterminate progress for operations >5 seconds | Files >30 MB (~20 min) take >2 min to process |
-| Synchronous UI during processing | Responsive during testing, frozen in production | Run FFmpeg in worker thread, keep UI responsive | Any real-world file size, testing uses tiny samples |
-| Decoding entire audio file | Tab crashes, 2+ GB memory usage | Use streaming `<audio>` element, only decode for waveform if needed | Files >30 minutes (v1.0) |
-| Waveform on main thread | UI freezes 10-30 seconds | Generate server-side OR use Web Worker OR lazy load | Files >10 minutes (v1.0) |
+| Re-rendering entire transcript on every cut change | Smooth with 5-minute audio (500 words), laggy with 60-minute podcasts (6000+ words) | Only re-apply highlightCutRegions(), don't re-render all word spans | > 3000 word spans |
+| mark.js searching without done callback blocks UI thread | Unnoticeable with 500 words, 2-3 second freeze with 6000 words | Always use done callback, consider chunking search with filter option | > 2000 word spans |
+| Running preview skip check on timeupdate event (250ms intervals) | Works for cuts > 1 second apart, misses short cuts (< 0.5s) | Use requestAnimationFrame (16.6ms intervals) with manual time check | Cuts < 0.5s duration |
+| Loading entire audio file into memory for preview | Fine with 20MB files, browser crashes with 200MB files | Use streaming via createObjectURL, rely on browser's partial content loading | > 100MB files |
+| Storing every search in localStorage for history | Convenient for 10 searches, 5KB storage, breaks at 1000 searches (500KB+) | Limit to 50 most recent searches, implement LRU eviction | > 500 searches stored |
+| CSS transitions on all transcript words simultaneously | Smooth with 500 words, stutters with 6000 words | Use transition only on currently-changing elements, will-change: transform | > 3000 animated elements |
 
 ## Security Mistakes
 
@@ -310,14 +302,11 @@ Domain-specific security issues beyond general web security.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Allowing unlimited file size uploads | Malicious user causes browser crashes or DOS | Implement hard limit (100 MB) with clear error message |
-| Not sanitizing filename from user input | Path traversal in virtual filesystem (`../../etc/passwd`) | Use allowlist for virtual filesystem paths, never trust user filenames directly |
-| Loading FFmpeg.wasm from untrusted CDN | MITM attack could inject malicious WASM | Use SRI (Subresource Integrity) hashes or host core files yourself |
-| Exposing FFmpeg logs without sanitization | Logs might contain file paths or user data | Sanitize logs before displaying to UI, strip absolute paths |
-| Allowing arbitrary FFmpeg commands | User could craft command to exhaust memory/CPU | Restrict to predefined command templates, validate all parameters |
-| Not handling CORS for cross-origin resources | User loads audio from different origin, processing fails | Document CORS requirements, provide clear error when cross-origin file detected |
-| Executing unsanitized filenames in shell | Command injection via filename like `"; rm -rf /"` | Sanitize filenames, use parameterized commands, validate against whitelist (v1.0) |
-| Storing API keys in frontend | Keys leaked in source code or DevTools | Use backend proxy for transcription API calls (v1.0) |
+| Using eval() to parse mark.js search patterns | XSS if user input contains malicious code | mark.js doesn't require eval - use direct string matching only |
+| Storing audio files in localStorage | Privacy breach - files persist indefinitely, visible to extensions | Use createObjectURL with File references only, never store audio data |
+| Allowing unlimited mark.js search length | ReDoS (Regular Expression Denial of Service) attacks | Limit search input to 100 characters maximum |
+| Not sanitizing transcript before search | Malicious transcript could inject HTML/script | mark.js handles this, but verify `element: "span"` creates safe tags |
+| Exposing theme preference writes to all origins | Malicious sites could spam localStorage | Scope localStorage keys to app domain |
 
 ## UX Pitfalls
 
@@ -325,35 +314,28 @@ Common user experience mistakes in this domain.
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No loading indicator during FFmpeg.wasm download | 30-second blank screen, user thinks app is broken | Show explicit message: "Loading audio processing engine (5 MB)..." with spinner |
-| Processing starts without warning about duration | User expects instant result, gets frustrated waiting 10 minutes | Show estimate before processing: "Processing this 60-min file will take approximately 5-10 minutes" |
-| No way to cancel long-running operation | User trapped in 10-minute wait, forced to close tab | Add "Cancel" button that calls `ffmpeg.exit()` and returns to editor |
-| Generic error messages on failure | User sees "Processing failed" with no actionable info | Specific errors: "File too large (150 MB, max 100 MB)", "Browser out of memory, try smaller file" |
-| No indication that processing is still active | User sees spinner for 5 minutes, can't tell if it's hung | Show FFmpeg console logs in real-time or time elapsed counter |
-| Percentage progress bar that jumps erratically | Progress shows 50%, jumps to 5%, back to 80% - user confusion | Use indeterminate spinner, show elapsed time instead of percentage |
-| File downloads automatically without confirmation | Processing completes, user isn't ready, misses download | Show success message with explicit "Download" button, don't auto-download |
-| No warning before processing clears current state | User processes, loses marked cuts, has to re-mark | Save cut state before processing, restore if user wants to re-process |
-| No progress indicator for transcription | User thinks app crashed, closes tab | Show progress bar, elapsed time, "typically takes X minutes" (v1.0) |
-| Cut points invisible until zoom | User thinks marking didn't work | Always show cut markers, scale visualization to fit (v1.0) |
+| No visual distinction between "playing through cut" (normal) vs "skipping cut" (preview) | Users confused why same cut is visible in transcript but not audible | Add prominent "Preview Mode" banner, different play button color/icon |
+| Search highlighting same color as cut highlighting | Can't tell if word is found by search or part of a cut region | Use distinct colors: cut regions = light red/gray, search = bright yellow/green |
+| Cut regions immediately disappear from transcript when preview starts | Users forget what they marked, can't verify cuts are correct | Keep cut shading visible during preview, add "Playing" indicator moving through transcript |
+| No feedback when search finds 0 results | Users assume search is broken, try different terms unnecessarily | Show "No matches found for 'query'" message, suggest removing filters |
+| Dark theme toggle requires page refresh | Users don't know toggle worked, click multiple times, confused | Instant theme switch with CSS variables, no reload required |
+| Preview play button same as normal play button | Users accidentally enter preview mode, confused why audio skips around | Separate "Preview" button with distinct icon (e.g., fast-forward symbol) |
+| No indication of how many cuts will be skipped in preview | Users don't know if preview is working correctly | Show "Preview will skip X cuts (Y minutes removed)" before starting |
 
 ## "Looks Done But Isn't" Checklist
 
 Things that appear complete but are missing critical pieces.
 
-- [ ] **FFmpeg.wasm Integration:** Often missing proper cleanup - verify `ffmpeg.exit()` AND `FS('unlink', ...)` both called
-- [ ] **Cross-origin Isolation:** Often missing fallback detection - verify single-thread fallback when SharedArrayBuffer unavailable
-- [ ] **Progress UI:** Often missing indeterminate state - verify spinner/timer rather than broken percentage bar
-- [ ] **Memory Management:** Often missing explicit file cleanup - verify no leaked files in virtual filesystem after processing
-- [ ] **File Size Validation:** Often missing upper bound check - verify hard limit enforced before attempting load into memory
-- [ ] **Error Handling:** Often missing specific error cases - verify OOM, timeout, and file-too-large handled distinctly
-- [ ] **iOS/Safari Testing:** Often missing mobile browser testing - verify tested on actual iOS Safari, not just desktop Chrome
-- [ ] **Processing Cancellation:** Often missing mid-operation cancel - verify `ffmpeg.exit()` can be called during `ffmpeg.run()`
-- [ ] **Loading State:** Often missing FFmpeg.wasm download indicator - verify user sees progress during initial WASM load
-- [ ] **Command Validation:** Often missing browser-specific testing - verify FFmpeg commands tested in browser context, not just native CLI
-- [ ] **Audio Playback:** Works in dev, but autoplay policy breaks in production - verify context created in user gesture (v1.0)
-- [ ] **Transcription:** Works once, but retries fail with 429 rate limit - verify exponential backoff implemented (v1.0)
-- [ ] **Cut Points:** Can create, but overlapping cuts allowed - verify validation before export (v1.0)
-- [ ] **State Management:** State exists in memory, but lost on reload - verify localStorage/IndexedDB persistence (v1.0)
+- [ ] **Preview Playback:** Often missing state reset on mode exit - verify audio.currentTime restored to pre-preview position when stopping preview
+- [ ] **Search Highlighting:** Often missing unmark() cleanup - verify DOM node count doesn't increase after 20 consecutive searches
+- [ ] **Cut Region Highlighting:** Often missing update on transcript re-render - verify highlights persist after generating new transcript
+- [ ] **Dark Theme:** Often missing contrast testing - verify all text meets WCAG 4.5:1 minimum, test with browser DevTools color picker
+- [ ] **Preview Skip Logic:** Often missing edge case for overlapping cuts - verify behavior when cuts are < 0.5s apart or overlap
+- [ ] **mark.js Integration:** Often missing accuracy configuration - verify search for "ear" doesn't highlight "search", "hear", "year"
+- [ ] **State Synchronization:** Often missing subscription to cut changes during preview - verify adding cut while preview playing immediately skips it
+- [ ] **Audio Seek Precision:** Often missing tolerance for VBR files - verify skip logic doesn't break with 0.1-0.3s seek imprecision
+- [ ] **Theme Flash Prevention:** Often missing inline script - verify no flash visible when hard-refreshing (Cmd+Shift+R) in dark mode
+- [ ] **Search Input Debouncing:** Often missing min-length check - verify search doesn't run for 1-character inputs (too many matches)
 
 ## Recovery Strategies
 
@@ -361,16 +343,16 @@ When pitfalls occur despite prevention, how to recover.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Memory exhaustion mid-processing | LOW | Detect OOM error, show "File too large" message, allow user to reduce file size or use smaller sections |
-| Missing cross-origin isolation headers | LOW | Detect at startup, show clear instructions: "Add these headers to your server config", fallback to single-thread if available |
-| iOS/Safari incompatibility | MEDIUM | Detect iOS Safari, automatically use single-thread version, show warning about longer processing time |
-| Progress indication broken | LOW | Switch to indeterminate spinner, show elapsed time counter, display FFmpeg console logs for activity indication |
-| Virtual filesystem memory leak | MEDIUM | Force `ffmpeg.exit()` and full page reload after 3 processing attempts, losing current state but reclaiming memory |
-| Corrupted output from bad commands | HIGH | No automatic recovery - must fix command pattern and re-process. Validate output file playback before download |
-| FFmpeg.wasm load failure | MEDIUM | Show error with link to browser compatibility info, suggest Chrome/Firefox if on unsupported browser, provide fallback contact |
-| Processing timeout/hang | MEDIUM | Detect no console output for 60+ seconds, offer cancel button, recommend smaller file or fewer cuts |
-| AudioContext suspended | LOW | Add `if (ctx.state === 'suspended') ctx.resume()` in play handler, deploy hotfix (v1.0) |
-| VBR seek inaccuracy | MEDIUM | Add 200ms buffer to seek targets, document known issue, consider CBR conversion feature (v1.0) |
+| Preview state leakage corrupted audio position | LOW | 1. Add mode validation before all play()/seek() calls 2. Store lastValidPosition on mode enter 3. Restore on mode exit |
+| Conflicting highlight DOM thrashing | MEDIUM | 1. Add unmark() before every mark() call 2. Switch cut highlighting to data attributes 3. Clear browser cache to reset DOM |
+| Dark theme FOUC visible on load | LOW | 1. Add inline script to `<head>` 2. Move theme CSS to use data attributes 3. Test with hard refresh |
+| Preview desync from cut edits | LOW | 1. Subscribe preview to onCutListChanged 2. Re-check cuts on every update callback 3. Add debounce if rapid edits cause stutter |
+| mark.js case sensitivity wrong | LOW | 1. Add explicit caseSensitive: false option 2. Test with mixed-case queries 3. Document behavior in UI |
+| VBR seek accuracy issues | MEDIUM | 1. Add 0.1-0.2s tolerance to all time checks 2. Seek to endTime + 0.1s for cuts 3. Test with real podcast files |
+| DOM accumulation from mark.js | MEDIUM | 1. Call unmark() on component unmount 2. Add done callback for all mark() calls 3. Monitor node count in dev mode |
+| Cut highlighting not updating | LOW | 1. Re-wire onCutListChanged to call highlightCutRegions() 2. Verify callback not overwritten 3. Check querySelectorAll scope |
+| Preview skip infinite loops | HIGH | 1. Add max iterations limit (e.g., 100 skips) 2. Add validation for cut.endTime > cut.startTime 3. Pause preview on error |
+| Theme toggle not instant | LOW | 1. Use CSS variables instead of class toggle 2. Set `[data-theme]` on `<html>` 3. Remove any JS-driven style updates |
 
 ## Pitfall-to-Phase Mapping
 
@@ -378,70 +360,76 @@ How roadmap phases should address these pitfalls.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Memory exhaustion | Phase 1 (Foundation) - file size validation; Phase 2 (Core) - cleanup patterns | Test with 150 MB file, verify memory usage <1 GB in DevTools |
-| Missing cross-origin isolation | Phase 1 (Foundation) - server config + detection | Verify headers present in Network tab, test multi-thread works |
-| iOS/Safari incompatibility | Phase 1 (Foundation) - detection + fallback; Phase 5 (UAT) - device testing | Test on real iPhone/iPad, verify single-thread fallback works |
-| Progress indication failure | Phase 2 (Core Processing) - indeterminate UI; Phase 3 (Optimization) - log parsing | Process 60-min file, verify user sees continuous activity indication |
-| Virtual filesystem leaks | Phase 2 (Core Processing) - explicit cleanup pattern | Process 3 times in a row, verify memory returns to baseline |
-| Command construction errors | Phase 2 (Core Processing) - command research + testing | Test with sample files, verify output quality and duration |
-| FFmpeg.wasm load time | Phase 1 (Foundation) - lazy loading + UI; Phase 3 (Optimization) - caching | Verify loading UI shows during first load, instant on subsequent |
-| AudioContext outside gesture | v1.0 Phase 1 | Click play, verify audio actually plays in production build |
-| VBR seek inaccuracy | v1.0 Phase 1 | Test with VBR MP3, verify seek lands within 100ms of target |
-| Transcription 25 MB limit | v1.0 Phase 2 | Upload 60 MB file, verify chunking or clear error |
+| Preview state leakage | Phase 2: Preview Playback | Switch modes 20 times, verify audio position accurate |
+| Conflicting highlights DOM thrashing | Phase 3: Search Implementation | Add cut, search, remove cut - verify no flicker, check node count |
+| Dark theme FOUC | Phase 4: Dark Theme | Hard refresh 10 times in dark mode, verify no flash visible |
+| Preview desync from cuts | Phase 2: Preview Playback | Add cut during preview, verify immediate skip |
+| mark.js case sensitivity | Phase 3: Search Implementation | Search "Word", "word", "WORD" - all find same matches |
+| VBR seek accuracy | Phase 2: Preview Playback | Test with VBR MP3, measure actual skip vs expected (< 0.3s error) |
+| mark.js memory leaks | Phase 3: Search Implementation | Perform 50 searches, check Memory profiler - no growth |
+| Cut highlighting not updating | Phase 1: Cut Region Highlighting | Add/remove cuts, verify instant highlight update |
+| Preview infinite loops | Phase 2: Preview Playback | Create overlapping cuts, verify no freeze/crash |
+| Theme toggle lag | Phase 4: Dark Theme | Toggle theme, verify < 16ms switch time (1 frame) |
+| RAF audio sync precision | Phase 2: Preview Playback | Test cuts from 0.2s to 5s, document minimum reliable length |
+| WCAG contrast violations | Phase 4: Dark Theme | Run DevTools audit, verify all text meets 4.5:1 ratio |
 
 ## Sources
 
-### FFmpeg.wasm - Memory and File Size Limitations
-- [Has anyone managed to work with large files? - FFmpeg.wasm Discussion](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/516)
-- [ffmpeg.load() takes huge amount of memory - Issue #83](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/83)
-- [Handling large files - Issue #8](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/8)
-- [ERR_OUT_OF_MEMORY when using createFFmpeg several times - Issue #200](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/200)
-- [Memory leak - Issue #494](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/494)
-- [Possible to use more than 2/4GB of files? - Discussion #755](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/755)
-- [FFmpeg.wasm Integration — Debugging Journey Report](https://medium.com/@nikunjkr1752003/ffmpeg-wasm-integration-debugging-journey-report-e23d579e81a0)
-- [FAQ - ffmpeg.wasm](https://ffmpegwasm.netlify.app/docs/faq/)
-- [Memory overflow problem - Issue #171](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/171)
-- [Uncaught RuntimeError: abort(OOM) - Issue #183](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/183)
+**mark.js Documentation:**
+- [mark.js Official Site](https://markjs.io/) - Performance best practices, done callback usage, unmark() memory management
+- [Advanced-mark.js - Performant Text Highlighting](https://www.jqueryscript.net/text/advanced-mark-highlighting.html) - Performance-enhanced version with virtual DOM support
 
-### FFmpeg.wasm - Cross-Origin Isolation and SharedArrayBuffer
-- [Cross Origin Isolation breaks ffmpeg.wasm - Issue #353](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/353)
-- [Is there a way to use without SharedArrayBuffer? - Issue #302](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/302)
-- [SharedArrayBuffer will require cross-origin isolation - Issue #234](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/234)
-- [Extract thumbnails from videos in browsers with ffmpeg.wasm - Transloadit](https://transloadit.com/devtips/extract-thumbnails-from-videos-in-browsers-with-ffmpeg-wasm/)
+**HTML5 Audio Seeking Issues:**
+- [Mozilla Bugzilla #1153564](https://bugzilla.mozilla.org/show_bug.cgi?id=1153564) - HTML5 audio seek function inaccuracy with VBR files
+- [Mozilla Bugzilla #1404278](https://bugzilla.mozilla.org/show_bug.cgi?id=1404278) - MSE audio glitches between segments
+- [GitHub goldfire/howler.js #963](https://github.com/goldfire/howler.js/issues/963) - Huge problem with seek to end of audio file
+- [Mozilla Bugzilla #587465](https://bugzilla.mozilla.org/show_bug.cgi?id=587465) - audio.currentTime low precision issues
+- [GitHub w3c/media-and-entertainment #4](https://github.com/w3c/media-and-entertainment/issues/4) - Frame accurate seeking challenges
+- [GitHub expo/expo #37653](https://github.com/expo/expo/issues/37653) - currentTime does not update for seeks before play
 
-### FFmpeg.wasm - iOS/Safari Compatibility
-- [Not working on Safari 14.0.1 - Issue #117](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/117)
-- [Support For IOS Mobile - Issue #299](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299)
+**Audio Synchronization & Timing:**
+- [Mozilla Bugzilla #587465](https://bugzilla.mozilla.org/show_bug.cgi?id=587465) - currentTime updates only 25 times/second in Firefox audio
+- [Chrome Developers: requestAnimationFrame precision](https://developer.chrome.com/blog/requestanimationframe-api-now-with-sub-millisecond-precision) - Sub-millisecond timing for RAF
+- [Web Audio API best practices - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices) - Audio scheduling and timing
+- [GitHub bbc/peaks.js #206](https://github.com/bbc/peaks.js/pull/206/files) - Replace playhead animations with requestAnimationFrame
+- [HTMLVideoElement: requestVideoFrameCallback() - MDN](https://developer.mozilla.org/en-US/docs/Web/API/HTMLVideoElement/requestVideoFrameCallback) - Video-specific frame-accurate callbacks
 
-### FFmpeg.wasm - Progress and Performance
-- [Progress event value - Issue #600](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/600)
-- [Speed? - Issue #326](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/326)
-- [FFmpeg WASM encoding progress](https://www.japj.net/2025/04/21/ffmpeg-wasm-encoding-progress/)
-- [Performance - ffmpeg.wasm](https://ffmpegwasm.netlify.app/docs/performance/)
-- [Multi-threading - ffmpegwasm/ffmpeg.wasm](https://deepwiki.com/ffmpegwasm/ffmpeg.wasm/4.4-multi-threading)
+**Dark Theme & FOUC Prevention:**
+- [Medium: Prevent Theme Flash in React](https://medium.com/@gaisdav/how-to-prevent-theme-flash-in-a-react-instant-dark-mode-switching-eb7b6aaa4831) - Inline script approach
+- [DEV Community: Avoid flickering on reload](https://dev.to/ayc0/light-dark-mode-avoid-flickering-on-reload-1567) - localStorage + inline script pattern
+- [Maxime Heckel: Fixing dark mode flashing](https://blog.maximeheckel.com/posts/switching-off-the-lights-part-2-fixing-dark-mode-flashing-on-servered-rendered-website/) - Server render solutions
+- [CSS-Tricks: FART (Flash of inAccurate coloR Theme)](https://css-tricks.com/flash-of-inaccurate-color-theme-fart/) - Common anti-patterns
+- [web.dev: Building a theme switch component](https://web.dev/building-a-theme-switch-component/) - Best practices 2025
+- [timomeh.de: User-defined color theme without flash](https://timomeh.de/posts/user-defined-color-theme-in-the-browser-without-the-initial-flash) - Implementation guide
+- [GitHub vercel/next.js #12533](https://github.com/vercel/next.js/discussions/12533) - Preventing CSS flickering in dark mode
+- [Wikipedia: Flash of unstyled content](https://en.wikipedia.org/wiki/Flash_of_unstyled_content) - FOUC definition and causes
 
-### FFmpeg.wasm - Codec and Format Support
-- [Overview - ffmpeg.wasm](https://ffmpegwasm.netlify.app/docs/overview/)
-- [ffmpeg.audio.wasm - Audio focused build](https://github.com/JorenSix/ffmpeg.audio.wasm)
-- [Proposed Encoders/Decoders Libraries - Issue #61](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/61)
+**WCAG & Accessibility:**
+- [BOIA: Dark Mode Doesn't Satisfy WCAG](https://www.boia.org/blog/offering-a-dark-mode-doesnt-satisfy-wcag-color-contrast-requirements) - Contrast requirements apply to all themes
+- [AllAccessible: Color Contrast WCAG 2025 Guide](https://www.allaccessible.org/blog/color-contrast-accessibility-wcag-guide-2025/) - 4.5:1 minimum for normal text
+- [WebAIM: Contrast and Color Accessibility](https://webaim.org/articles/contrast/) - Understanding WCAG 2 requirements
+- [DubBot: Dark Mode Best Practices](https://dubbot.com/dubblog/2023/dark-mode-a11y.html) - Avoid pure black, use softer grays
+- [GitHub w3c/wcag #2889](https://github.com/w3c/wcag/issues/2889) - Dark mode consideration for WCAG contrast criterion
+- [DeveloperUX: Best Practices for Accessible Color Contrast](https://developerux.com/2025/07/28/best-practices-for-accessible-color-contrast-in-ux/) - 2025 UX guidelines
 
-### FFmpeg.wasm - Worker Thread Management
-- [Should worker threads exit? - Issue #136](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/136)
-- [Running single threaded FFMPEG in a web worker - Issue #337](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/337)
-- [Running FFMPEG with WASM in a Web Worker - Paul Kinlan](https://paul.kinlan.me/running-ffmpeg-with-wasm-in-a-web-worker/)
+**Audio Playback State Management:**
+- [Adobe Community: Premiere 2025 Playback Issues](https://community.adobe.com/t5/premiere-pro-bugs/playback-stops-working-completely-in-premiere-2025/idc-p/15430514) - State corruption from mode switching
+- [GitHub obsproject/obs-studio #12044](https://github.com/obsproject/obs-studio/issues/12044) - Preview freezes and audio stops in OBS
+- [Mozilla Bugzilla #1517199](https://bugzilla.mozilla.org/show_bug.cgi?id=1517199) - playbackRate issues with media elements
+- [Creative COW: Audio sync problems during preview](https://creativecow.net/forums/thread/audio-sync-problems-during-preview-playback-and-up/) - Preview playback sync issues
 
-### FFmpeg.wasm - Command Construction and File System
-- [Fixing FFmpeg.wasm Loading Issues in Vanilla JavaScript](https://medium.com/@python-javascript-php-html-css/fixing-ffmpeg-wasm-loading-issues-in-vanilla-javascript-5c98ad527abe)
-- [FFmpeg.wasm, a pure WebAssembly/JavaScript port of FFmpeg](https://jeromewu.github.io/ffmpeg-wasm-a-pure-webassembly-javascript-port-of-ffmpeg/)
-- [Class: FFmpeg - API Documentation](https://ffmpegwasm.netlify.app/docs/api/ffmpeg/classes/ffmpeg/)
+**CSS Conflicts & DOM Performance:**
+- [MDN: Handling conflicts](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Handling_conflicts) - Cascade, specificity, inheritance
+- [Medium: Conflicting CSS Classes](https://medium.com/@kinzaeman69/conflicting-css-classes-20e7b6776f0d) - Resolution patterns
+- [CSS Script: Modern Syntax Highlighter with Custom Highlight API](https://www.cssscript.com/syntax-highlighter-custom-api/) - Performant alternative to DOM wrapping
 
-### v1.0 Sources (Web Audio API, Transcription)
-- [Web Audio API Best Practices - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices)
-- [Firefox Bug 1153564: HTML5 audio seek accuracy problems with VBR](https://bugzilla.mozilla.org/show_bug.cgi?id=1153564)
-- [OpenAI Whisper API: 25 MB File Limit Discussion](https://community.openai.com/t/whisper-api-increase-file-limit-25-mb/566754)
-- [Autoplay Guide for Media and Web Audio APIs - MDN](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay)
+**Web Audio API & Segment Playback:**
+- [MDN: Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) - Official documentation
+- [MDN: Using the Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Using_Web_Audio_API) - Usage guide
+- [web.dev: Media Source Extensions for Audio](https://web.dev/articles/mse-seamless-playback/) - Gapless playback techniques
+- [Chrome Developers: MSE for Audio](https://developer.chrome.com/blog/media-source-extensions-for-audio) - Seamless audio playback
 
 ---
-*Pitfalls research for: PodEdit v2.0 FFmpeg.wasm Integration*
-*Researched: 2026-01-26*
-*Extends v1.0 pitfalls research with browser-based audio processing pitfalls*
+*Pitfalls research for: PodEdit v3.0 UX Enhancements (Preview, Search, Theme)*
+*Researched: 2026-01-28*
+*Extends v1.0 (transcript navigation) and v2.0 (FFmpeg.wasm) pitfalls research*

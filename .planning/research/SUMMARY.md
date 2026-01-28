@@ -1,275 +1,255 @@
 # Project Research Summary
 
-**Project:** PodEdit v2.0 - Browser-Based Audio Processing
-**Domain:** Podcast editing web application with transcript navigation
-**Researched:** 2026-01-26
+**Project:** PodEdit v3.0 UX & Preview Enhancements
+**Domain:** Browser-based podcast audio editor
+**Researched:** 2026-01-28
 **Confidence:** HIGH
 
 ## Executive Summary
 
-PodEdit v2.0 extends an existing browser-based podcast editor (v1.0) with in-browser audio processing capabilities using FFmpeg.wasm. V1.0 already handles audio playback, Whisper API transcription, transcript navigation, and cut point marking with JSON export. V2.0 adds the ability to apply those marked cuts directly in the browser and download the edited audio file, eliminating the need for external processing tools.
+PodEdit v3.0 builds on validated v1.0/v2.0 architecture to add professional UX features expected in modern audio editors: cut region highlighting, preview playback that skips cuts, real-time transcript search, and dark mode theming. The v1.0/v2.0 stack (Vanilla JavaScript, Vite, FFmpeg.wasm, HTML5 Audio) remains unchanged. Only one new dependency is needed: mark.js (11KB, via CDN) for transcript search highlighting.
 
-The recommended approach uses FFmpeg.wasm with multi-threaded core (@ffmpeg/core-mt) for browser-based audio manipulation. This aligns with PodEdit's "local processing" philosophy while adding 3-6 minute processing times for typical 45-90 minute podcasts. The integration is architecturally clean: a single new ProcessingService wraps FFmpeg.wasm, a ProcessingController manages UI, and existing services (AudioService, ExportService) extend minimally. The existing vanilla JavaScript architecture requires no framework changes.
+The recommended approach leverages existing service/controller patterns established in v1.0/v2.0. Cut region highlighting is already implemented in TranscriptController. Preview playback adds a new PreviewService that wraps AudioService using timeupdate event monitoring (~250ms granularity, sufficient for podcast editing). Search adds a new SearchController managing a mark.js instance. Dark theme requires pure CSS refactoring using CSS Custom Properties with no new components. Getting started instructions are static HTML with localStorage-based collapse state.
 
-The primary risks are memory exhaustion with large files (>100MB) and browser compatibility issues (iOS Safari, cross-origin isolation headers). Mitigation strategies include upfront file size validation, explicit memory cleanup patterns, and single-thread fallback for incompatible browsers. Seven critical pitfalls have been identified with clear prevention strategies, most addressable in Phase 1 (Foundation) through proper configuration and validation.
+Key risks center on state synchronization and DOM conflicts. Preview playback must subscribe to CutController's onCutListChanged callback to stay synchronized when cuts change during preview. mark.js and cut region highlighting both manipulate transcript DOM, requiring CSS specificity hierarchy and explicit unmark() cleanup to prevent DOM thrashing. Dark theme must use inline script in head to prevent FOUC (Flash of Unstyled Content). VBR MP3 seek imprecision requires 0.1-0.2s tolerance in skip logic.
 
 ## Key Findings
 
 ### Recommended Stack
 
-FFmpeg.wasm is the industry-standard solution for browser-based audio processing, providing full codec support and proven stability. The multi-threaded core (@ffmpeg/core-mt) provides 2x speedup over single-thread, reducing processing time from 6-12 minutes to 3-6 minutes for podcast-length files. The stack integrates cleanly with PodEdit's existing vanilla JavaScript architecture.
+PodEdit v3.0 adds minimal dependencies to the validated v1.0/v2.0 stack. Core technologies (Vanilla JavaScript, Vite, FFmpeg.wasm, HTML5 Audio, Whisper API, IndexedDB) remain unchanged. Only mark.js is added for search highlighting.
 
-**Core technologies:**
-- **FFmpeg.wasm (@ffmpeg/ffmpeg 0.12.15)**: Browser audio processing — full codec support, runs entirely client-side, proven for podcast-length files
-- **@ffmpeg/core-mt (0.12.6)**: Multi-threaded WASM core — 2x faster than single-thread, essential for 45-90 minute podcasts
-- **Vite (latest)**: Development server — CRITICAL for COOP/COEP headers required by FFmpeg.wasm SharedArrayBuffer
-- **HTML5 Audio (existing)**: Playback only — FFmpeg handles processing, HTML5 Audio continues handling playback (no changes needed)
-- **IndexedDB (existing)**: Cache extension — extend existing transcript caching to store processed audio and avoid re-processing
+**New dependency:**
+- **mark.js 8.11.1** (via CDN): Real-time transcript search highlighting — Mature stable library (last updated 2018, no breaking changes), 11KB minified, vanilla JS compatible, asynchronous non-blocking operation. CDN preferred over npm to avoid Vite build config changes.
 
-**Migration requirement:** PodEdit v1.0 uses `serve` package for dev server. Must migrate to Vite in v2.0 to enable cross-origin isolation headers (COOP/COEP) required for FFmpeg.wasm multi-threading.
+**Zero-dependency features:**
+- **Cut region highlighting**: CSS class toggling on existing .transcript-word elements (already implemented in TranscriptController v2.0)
+- **Preview playback**: HTML5 Audio timeupdate event + conditional seek (native API, ~250ms granularity sufficient)
+- **Dark theme**: CSS Custom Properties with data-theme attribute (native browser feature, runtime switching)
+- **Getting started UI**: localStorage + conditional display (native Web Storage API)
 
-**Memory characteristics:** 45-90 minute podcasts (43-86 MB MP3) require 150-400 MB peak memory during processing, well within browser WebAssembly 2GB limit (5-10x safety margin). Explicit cleanup is critical to prevent memory leaks across multiple processing operations.
+**Why minimal dependencies:** v3.0 focuses on UX polish, not new infrastructure. CSS variables replace need for theme frameworks (Tailwind adds 100KB+). Native timeupdate API replaces need for Web Audio API (overkill for podcast timing accuracy). Static HTML replaces modal libraries for onboarding.
 
 ### Expected Features
 
-Research identifies 8 table stakes features for v2.0 processing workflow, 7 differentiators for competitive advantage, and 6 anti-features to avoid.
+Based on professional audio editor patterns (Descript, Audacity, Pro Tools, Riverside), v3.0 features break down into table stakes vs differentiators.
 
 **Must have (table stakes):**
-- Process trigger button — clear affordance to start processing (standard "Export Edited Audio" pattern)
-- Determinate progress indicator — percentage + current operation text (users wait 3x longer with progress feedback)
-- Cancel/abort processing — stop button that actually works (critical for 3-6 minute operations)
-- Memory error handling — graceful failure with clear messages about file size limits
-- File download delivery — standard browser download with Blob URL and cleanup
-- Filename suggestion — `{original}_edited_{timestamp}.{ext}` convention
-- Format preservation — output matches input format by default (avoid unexpected quality loss)
-- Browser compatibility check — detect WebAssembly/SharedArrayBuffer, show clear error if unsupported
+- **Cut region visual feedback** — Text-based editors show deleted content visually (strikethrough/shading/dimming standard)
+- **Preview playback accuracy** — Playback must skip cuts to match final result (users need confidence preview = export)
+- **Search with match highlighting** — Users expect Ctrl+F-like functionality with real-time highlighting
+- **Dark theme** — Professional audio tools default to dark UI (eye strain reduction for long editing)
+- **Getting started guidance** — Empty state instructions prevent "what do I do?" confusion
 
-**Should have (competitive):**
-- No upload required — privacy + speed through local processing (core differentiator)
-- Transcript-driven cuts — text-based editing faster than waveform scrubbing (v1.0 value prop extended)
-- Processing time estimate — set expectations before processing starts ("approximately 2-3 minutes")
-- Cut preview playback — verify cuts before processing to avoid costly re-processing
-- Processing log/details — show FFmpeg commands for debugging and transparency
+**Should have (competitive advantage):**
+- **Always-skip-cuts preview (no toggle)** — Simplified mental model: preview = final result always (vs Audacity's toggle mode)
+- **Shaded background for cuts** — More subtle than Descript's strikethrough, better for audio vs video editing
+- **Real-time search (no submit button)** — Debounced 300ms, instant feedback, fewer clicks
+- **Minimal onboarding (static text)** — Respects user intelligence, avoids modal fatigue vs tutorial videos
 
-**Defer (v2.x+):**
-- Memory usage indicator — complex to implement, unclear value until users hit limits
-- Format conversion options — adds complexity, may never be needed if preservation works
-- Automatic preview generation — doubles processing time and memory usage (use manual preview instead)
-- Background processing while editing — FFmpeg blocks file access, creates unsafe state confusion
+**Defer (v4+):**
+- Light theme option (most audio editors dark-only, add if requested)
+- Search match navigation UI (next/prev buttons — transcript short enough for visual scan)
+- Cut region color customization (adds testing burden, accessibility multiplies)
+- Animated transitions (performance cost on large transcripts, unnecessary flourish)
+
+**Anti-features to avoid:**
+- Toggle between "preview mode" and "edit mode" (adds cognitive load, accidental edits in wrong mode)
+- Guided walkthrough/tutorial modals (users skip then forget, blocks workflow)
+- Multiple theme options beyond light/dark (testing complexity multiplies)
 
 ### Architecture Approach
 
-FFmpeg.wasm integrates as a clean new layer in PodEdit's existing vanilla JavaScript architecture. V1.0 architecture remains unchanged: AudioService (playback), TranscriptController (navigation), CutController (marking), ExportService (JSON download). V2.0 adds a single ProcessingService that wraps FFmpeg.wasm lifecycle and a ProcessingController for UI. The integration is non-invasive with minimal extensions to existing services.
+PodEdit v3.0 extends the validated v1.0/v2.0 service/controller pattern with minimal new components. Existing architecture uses loose coupling via callbacks (CutController → index.html → TranscriptController), event delegation on transcript container, and service wrapping (PlayerController wraps AudioService).
 
-**Major components:**
-1. **ProcessingService (NEW)** — Orchestrates FFmpeg.wasm lifecycle, lazy-loads WASM core on-demand, builds filter_complex commands from cut regions, manages virtual filesystem cleanup
-2. **ProcessingController (NEW)** — UI for process trigger button, progress bar updates, error display, wires user actions to ProcessingService
-3. **AudioService (EXTEND)** — Add getOriginalFile() method to expose File reference (currently only exposes HTML5 Audio element)
-4. **ExportService (EXTEND)** — Add downloadAudio() method alongside existing downloadJson() for processed file delivery
-5. **FFmpeg.wasm Instance** — Runs in Web Worker, isolated memory, virtual filesystem for file I/O, progress callbacks for UI feedback
+**New components (only 2):**
+1. **PreviewService** — Preview mode with cut skipping logic. Wraps AudioService, subscribes to timeupdate events (~4x/sec), calls CutController.getCutAtTime(), seeks to cut.endTime when detected. No changes to AudioService itself.
+2. **SearchController** — Transcript search with mark.js. Manages mark.js instance, debounces input (300ms), calls mark()/unmark() methods. Independent of TranscriptController, both operate on same transcript DOM.
 
-**Data flow:** User clicks "Process Audio" → ProcessingController gets File from AudioService + cuts from CutController → ProcessingService loads FFmpeg.wasm, writes file to virtual FS, builds filter_complex to remove cut regions, executes FFmpeg, reads output, cleans up → ProcessingController receives Blob → ExportService triggers download.
+**Modified components:**
+- **index.html**: Add search UI, preview toggle, intro section, theme toggle, refactor CSS to use variables
+- **TranscriptController**: NONE (cut highlighting already complete in v2.0)
+- **CutController**: NONE (already provides getCutAtTime() method)
+- **AudioService**: NONE (PreviewService wraps it, no changes needed)
 
-**Memory lifecycle:** Original file (~100MB) + FFmpeg WASM (~31MB) + virtual FS copy (~100MB) + decoded PCM (~200MB) + output (~100MB) = ~500-600MB peak. Immediate cleanup after processing returns to ~200MB baseline.
+**Integration patterns validated:**
+- Event delegation on transcript container avoids re-attaching listeners when mark.js restructures DOM
+- Callback-based communication (PreviewService.onPreviewModeChanged) maintains loose coupling
+- Service wrapping keeps AudioService generic, PreviewService adds feature-specific behavior
+- Data attributes (data-start, data-end) persist when mark.js wraps text, no interference with click-to-seek
+
+**Build order recommendation:**
+1. Dark theme + intro text (no dependencies, parallel work)
+2. Search + preview playback (depend on foundation UI)
+3. Polish cut highlighting styles (optional enhancement)
 
 ### Critical Pitfalls
 
-Research identified 7 critical FFmpeg.wasm-specific pitfalls (plus 2 v1.0 pitfalls retained for reference). All have clear prevention strategies and phase assignments.
+**1. Preview Playback State Leakage**
+Preview mode corrupts normal playback state. Multiple audio.currentTime assignments in rapid succession cause race conditions. Switching modes leaves audio at unpredictable positions.
+- **Prevention**: Explicit state machine (NORMAL/PREVIEW modes), pause audio before mode switch, debounce seeks (50-100ms minimum), use seeking/seeked event listeners to track completion, store lastKnownGoodPosition before entering preview
+- **Phase**: Phase 2 (Preview Playback) — must be core architectural decision
 
-1. **Memory exhaustion with large files** — Files >100MB can crash browser tabs. Prevention: file size validation before processing, explicit cleanup (deleteFile + exit), consider chunking for >100MB files. Address in Phase 1 (validation) and Phase 2 (cleanup patterns).
+**2. Conflicting Highlight Systems Causing DOM Thrashing**
+mark.js search highlighting and cut region highlighting fight for same word spans. mark.js wraps text in mark tags, destroying cut region classes. Cut highlighting re-runs, can't find mark.js elements. Creates cycle causing performance degradation, visual flickering, memory leaks.
+- **Prevention**: Use mark.js with element:"span" and accuracy:"exactly" to match structure, call unmark() before every mark() to prevent accumulation, CSS specificity hierarchy (base < cut-region < search-highlight), use data attributes (data-in-cut="true") instead of classes for cut regions, measure DOM node count in dev mode
+- **Phase**: Phase 3 (Search Implementation) — critical integration point
 
-2. **Missing cross-origin isolation headers** — SharedArrayBuffer (required for multi-threading) disabled without COOP/COEP headers. Prevention: configure Vite headers immediately, detect SharedArrayBuffer availability, provide single-thread fallback. Address in Phase 1 (Foundation) — blocks all downstream work.
+**3. Dark Theme FOUC (Flash of Unstyled Content)**
+Blinding flash of light theme before dark theme loads. JavaScript runs after HTML parsing, so theme detection from localStorage happens too late. Browser renders default styles first.
+- **Prevention**: Inline script in head BEFORE CSS links, blocking synchronous script (no async/defer), read localStorage and set data-theme attribute immediately, use prefers-color-scheme media query for first-time visitors, minimize inline script (<0.5KB), set attribute on html not body
+- **Phase**: Phase 1 (Dark Theme) — must be implemented correctly from start
 
-3. **iOS/Safari incompatibility** — Safari doesn't support SharedArrayBuffer in Web Workers even with headers. Prevention: detect iOS Safari, automatic single-thread fallback, show performance warning. Address in Phase 1 (detection) and Phase 5 (UAT with real devices).
+**4. Preview Skip Logic Desynchronizing with Cut Region Updates**
+Preview playback uses snapshot of cut regions. When user adds/deletes cuts during preview, skip logic doesn't update. Audio plays through new cuts or skips deleted regions. Can cause infinite seek loops.
+- **Prevention**: Subscribe to CutController.onCutListChanged callback, re-evaluate position against new cuts immediately, trigger skip if currently in new cut, debounce if rapid edits (200ms batch window), provide visual feedback ("Preview updated")
+- **Phase**: Phase 2 (Preview Playback) — architectural decision for state sync
 
-4. **Progress indication failure** — FFmpeg progress events are experimental and return negative/nonsensical values. Prevention: use indeterminate spinner (not percentage bar), parse FFmpeg console logs for time values, show estimated duration warnings. Address in Phase 2 (Core Processing).
-
-5. **Virtual filesystem memory leaks** — Files persist in WASM memory even after processing completes. Prevention: explicit FS('unlink', ...) after readFile, call ffmpeg.exit() to destroy instance, reload FFmpeg before next operation. Address in Phase 2 (Core Processing) — implement from start.
-
-6. **FFmpeg command construction errors** — Commands that work in native FFmpeg fail or produce corrupted output in browser. Prevention: test commands in browser context (not just native CLI), use simple well-tested patterns, always re-encode at segment boundaries (not -c copy), add fade-in/fade-out to prevent clicks. Address in Phase 2 (command research + testing).
-
-7. **FFmpeg.wasm load time** — Initial load takes 10-30 seconds (20MB download + WASM compilation). Prevention: lazy load on "Process" button click (not app init), show explicit loading UI ("Downloading processing engine..."), implement service worker caching. Address in Phase 1 (lazy loading) and Phase 3 (caching).
+**5. Audio Element Seek Accuracy Issues with VBR Files**
+VBR MP3 files don't have fixed frame boundaries. audio.currentTime can only seek to actual frames, not requested times. Browser implementations differ (Firefox seeks to 19.999s when requesting 20.0s). timeupdate fires at 200-250ms intervals, too slow to correct errors. Seeking accuracy varies by codec (MP3 VBR worst, M4A better, WAV best).
+- **Prevention**: Accept 0.1-0.2s imprecision as inherent limitation, seek to cut.endTime + 0.1s for preview skip, use 0.3s tolerance for transcript word highlighting, test with real podcast files (typically VBR) not test fixtures (often CBR), calculate each skip from absolute time not relative
+- **Phase**: Phase 2 (Preview Playback) — must account for imprecision in skip logic
 
 ## Implications for Roadmap
 
-Based on research, suggested 5-phase structure focused on foundation-first, then incremental feature delivery:
+Based on research, v3.0 features have clear dependency structure and integration risks requiring specific phase ordering.
 
-### Phase 1: Foundation & Configuration
-**Rationale:** Critical infrastructure must be in place before FFmpeg.wasm integration. Cross-origin isolation headers are a hard requirement that blocks all downstream work. File size validation prevents catastrophic memory crashes. Browser detection enables graceful fallbacks.
+### Phase 1: Dark Theme + Getting Started UI
+**Rationale:** Zero dependencies, no coordination with other features. Can be done in parallel as foundation work.
+**Delivers:** Professional dark theme with CSS Custom Properties, collapsible getting started instructions
+**Technologies:** CSS variables, data-theme attribute, localStorage, inline script for FOUC prevention
+**Avoids:** Pitfall #3 (Dark Theme FOUC) via inline script in head before CSS links
+**Complexity:** MEDIUM (dark theme CSS refactoring), LOW (getting started HTML)
+**Research needed:** No — CSS Custom Properties and localStorage are well-documented patterns
 
-**Delivers:**
-- Vite migration (replace `serve` package) with COOP/COEP headers configured
-- SharedArrayBuffer detection with fallback to single-thread
-- File size validation (warn >50MB, block >100MB)
-- iOS/Safari detection with performance warnings
-- FFmpeg.wasm lazy loading pattern (load on button click, not app init)
-- Loading UI for WASM download progress
+### Phase 2: Preview Playback (Skip Cuts)
+**Rationale:** Core value proposition of v3.0. Requires state synchronization architecture decisions that inform later work.
+**Delivers:** Always-on preview mode that skips cut regions during playback
+**Technologies:** HTML5 Audio timeupdate event, PreviewService wrapper, CutController integration
+**Avoids:** Pitfall #1 (state leakage) via explicit mode state machine, Pitfall #4 (desync) via onCutListChanged subscription, Pitfall #5 (VBR seek) via 0.1-0.2s tolerance
+**Complexity:** HIGH (state management, edge cases, timing precision)
+**Research needed:** No — patterns validated, but extensive testing required for edge cases
 
-**Addresses pitfalls:**
-- Missing cross-origin isolation headers (Pitfall #2) — BLOCKS all work
-- iOS/Safari incompatibility (Pitfall #3) — detect and fallback
-- FFmpeg.wasm load time (Pitfall #7) — lazy loading + UI
-- Memory exhaustion (Pitfall #1) — file size validation
+### Phase 3: Transcript Search with Highlighting
+**Rationale:** Depends on dark theme CSS being stable (search highlights must be visible in both themes). Critical integration point where mark.js and cut highlighting must coexist.
+**Delivers:** Real-time debounced search with mark.js highlighting
+**Technologies:** mark.js 8.11.1 via CDN, SearchController with debouncing (300ms)
+**Avoids:** Pitfall #2 (DOM thrashing) via unmark() before every mark(), CSS specificity hierarchy, data attributes for cut regions
+**Complexity:** MEDIUM (mark.js integration, CSS conflicts, performance testing)
+**Research needed:** No — mark.js well-documented, but DOM node count monitoring essential
 
-**Research needs:** Phase 1 uses well-documented patterns (Vite configuration, browser feature detection). Skip `/gsd:research-phase`.
-
-### Phase 2: Core FFmpeg.wasm Processing
-**Rationale:** Implement the complete processing pipeline with single cut first, then extend to multiple cuts. Focus on memory safety and command correctness before adding UI polish. This phase is high-risk due to FFmpeg command complexity.
-
-**Delivers:**
-- ProcessingService skeleton with FFmpeg.wasm integration
-- Virtual filesystem management (writeFile, readFile, explicit cleanup)
-- Filter_complex command construction for cut removal
-- Single cut processing (validate correctness)
-- Multiple cut processing with concatenation
-- Memory cleanup pattern (deleteFile + ffmpeg.exit + reload)
-- Indeterminate progress UI (spinner, not percentage bar)
-
-**Addresses pitfalls:**
-- Virtual filesystem memory leaks (Pitfall #5) — explicit cleanup from start
-- FFmpeg command construction errors (Pitfall #6) — test in browser context
-- Progress indication failure (Pitfall #4) — indeterminate UI
-- Memory exhaustion (Pitfall #1) — cleanup patterns
-
-**Research needs:** Phase 2 requires FFmpeg command research for cut operations. Commands that work in native FFmpeg may fail in browser. Use `/gsd:research-phase` to research filter_complex patterns for audio concatenation.
-
-### Phase 3: Service Integration & Download
-**Rationale:** Wire ProcessingService to existing PodEdit services (AudioService, CutController, ExportService). Implement file download with proper cleanup. Extend IndexedDB caching to avoid re-processing.
-
-**Delivers:**
-- AudioService.getOriginalFile() method (expose File reference)
-- AudioService.getDuration() integration (for final segment calculation)
-- CutController integration (pass cut regions to processing)
-- ExportService.downloadAudio() method (Blob download with cleanup)
-- ProcessingController (button, progress display, error handling)
-- IndexedDB extension (cache processed audio by file hash + cut list hash)
-- Filename suggestion (`{original}_edited_{timestamp}.{ext}`)
-- Format preservation (output matches input format)
-
-**Addresses features:**
-- Process trigger button (table stakes)
-- File download delivery (table stakes)
-- Filename suggestion (table stakes)
-- Format preservation (table stakes)
-- No upload required (differentiator — already achieved via architecture)
-
-**Research needs:** Phase 3 uses standard patterns (service integration, IndexedDB, Blob downloads). Skip `/gsd:research-phase`.
-
-### Phase 4: Error Handling & Polish
-**Rationale:** Robust error handling and UX polish differentiate good from great. Processing operations take 3-6 minutes — errors must be clear and actionable. Memory errors, timeout detection, and cancellation are critical for user confidence.
-
-**Delivers:**
-- Memory error detection and clear messages ("File too large: 150MB, max 100MB")
-- Processing timeout detection (no console output for >60 seconds = potential hang)
-- Cancel button that actually works (calls ffmpeg.exit(), cleans up state)
-- Processing time estimate before starting ("This will take approximately 3 minutes")
-- FFmpeg console log display (real-time activity indication, debugging transparency)
-- Success/error dialogs with actionable guidance
-- Auto-save cut list before processing (localStorage fallback for recovery)
-
-**Addresses features:**
-- Cancel/abort processing (table stakes)
-- Memory error handling (table stakes)
-- Browser compatibility check (table stakes — already in Phase 1)
-- Processing time estimate (differentiator)
-- Processing log/details (differentiator)
-
-**Addresses pitfalls:**
-- Memory exhaustion (Pitfall #1) — clear error messages
-- Progress indication failure (Pitfall #4) — console logs as activity indicator
-
-**Research needs:** Phase 4 uses standard error handling patterns. Skip `/gsd:research-phase`.
-
-### Phase 5: UAT & Browser Compatibility
-**Rationale:** FFmpeg.wasm behavior varies significantly across browsers and platforms. iOS/Safari, memory limits, and multi-threading support require real device testing. This phase validates all previous phases work in production conditions.
-
-**Delivers:**
-- iOS Safari testing on real devices (iPhone, iPad)
-- Chrome/Firefox/Edge desktop testing
-- Large file testing (50-150MB podcasts)
-- Multiple processing operations in single session (memory leak detection)
-- Cross-origin isolation header verification in production
-- Single-thread fallback verification
-- Performance benchmarking (processing time vs file size)
-
-**Validates:**
-- iOS/Safari incompatibility (Pitfall #3) — confirm single-thread fallback works
-- Memory exhaustion (Pitfall #1) — confirm limits hold for real files
-- Missing cross-origin isolation (Pitfall #2) — confirm production headers work
-
-**Research needs:** Phase 5 is testing only. Skip `/gsd:research-phase`.
+### Phase 4: Polish & Refinement
+**Rationale:** Optional enhancements that don't block core functionality. Can be deferred if time-constrained.
+**Delivers:** Enhanced cut region visual styling, keyboard shortcuts (Ctrl+F for search, Esc to clear), search match count indicator
+**Complexity:** LOW (mostly CSS and event listeners)
+**Research needed:** No — standard patterns
 
 ### Phase Ordering Rationale
 
-1. **Foundation first (Phase 1)** — Cross-origin isolation headers are a hard requirement. File size validation prevents catastrophic crashes. Browser detection enables graceful degradation. Without Phase 1, all subsequent work fails or causes crashes.
+**Why Dark Theme first:**
+- Zero dependencies on other v3.0 features
+- Provides color scheme foundation for search highlights and cut region shading
+- FOUC prevention requires architectural decision (inline script) before CSS is finalized
+- Parallel work opportunity: one developer on dark theme, another on preview playback
 
-2. **Processing core second (Phase 2)** — FFmpeg.wasm integration is the highest-risk work (command construction, memory management). Isolate this risk by implementing processing pipeline first, validate it works, then integrate with UI.
+**Why Preview Playback before Search:**
+- Preview is higher complexity, establishes state synchronization patterns
+- Preview state machine informs search integration (both need to respect audio state)
+- Preview has more critical pitfalls (state leakage, VBR seek accuracy, desync)
+- Search depends on dark theme being stable (highlight colors must work in both modes)
 
-3. **Integration third (Phase 3)** — Once processing core is validated, wire to existing services. This phase is lower risk because v1.0 services are already stable.
+**Why Search after Dark Theme:**
+- Search highlights must be visible and accessible in both light and dark modes
+- Requires WCAG contrast testing against dark theme background colors
+- mark.js CSS class names reference theme-specific color variables
 
-4. **Polish fourth (Phase 4)** — Error handling and UX improvements build on validated processing pipeline. Clear errors require understanding failure modes discovered in Phase 2-3.
-
-5. **UAT last (Phase 5)** — Real device testing validates all assumptions about browser compatibility, memory limits, and performance.
-
-**Dependency chain:** Phase 1 (headers) → Phase 2 (processing) → Phase 3 (integration) → Phase 4 (polish) → Phase 5 (UAT). Each phase depends on previous phases being complete and validated.
-
-**Pitfall avoidance:** Most pitfalls addressed in Phase 1 (foundation) and Phase 2 (core). This front-loads risk and prevents compounding issues. Phase 4-5 validate mitigation strategies work in practice.
+**Why Polish last:**
+- Non-blocking enhancements that can be cut if schedule slips
+- Keyboard shortcuts and match count are UX improvements, not table stakes
+- Can gather user feedback on core features before finalizing polish
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+**Needs deeper research during planning:**
+- NONE — All v3.0 features use well-documented, validated patterns. Research complete.
 
-- **Phase 2 (Core Processing):** FFmpeg filter_complex command construction for audio concatenation is complex and browser-specific. Commands that work in native FFmpeg may fail in WASM. Research needed for: cut removal patterns, segment concatenation, fade-in/fade-out at boundaries, re-encoding requirements. Use `/gsd:research-phase 2` before implementation.
+**Standard patterns (skip research-phase):**
+- **Phase 1**: CSS Custom Properties for theming is 2026 standard practice
+- **Phase 2**: HTML5 Audio timeupdate event pattern extensively documented
+- **Phase 3**: mark.js has comprehensive official documentation and examples
+- **Phase 4**: Standard DOM event handling and CSS refinement
 
-Phases with standard patterns (skip research-phase):
-
-- **Phase 1 (Foundation):** Vite configuration, browser feature detection, file validation — all well-documented standard patterns
-- **Phase 3 (Integration):** Service wiring, IndexedDB, Blob downloads — standard web development patterns
-- **Phase 4 (Polish):** Error handling, UI feedback — standard UX patterns
-- **Phase 5 (UAT):** Testing only, no implementation
+**Testing emphasis instead of research:**
+- Phase 2: Extensive edge case testing (VBR files, overlapping cuts, rapid seeks, mode switching)
+- Phase 3: DOM performance monitoring (node count, memory profiling, 10,000+ word transcripts)
+- Phase 4: Accessibility testing (WCAG contrast ratios, keyboard navigation, screen reader)
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | FFmpeg.wasm 0.12.15 verified via official GitHub releases (Jan 2025), Vite configuration verified via multiple working examples, multi-thread performance benchmarks from official docs |
-| Features | MEDIUM | Table stakes features derived from competitor analysis (Descript, Audacity) and UX research, but limited actual user validation. Differentiators based on PodEdit's existing v1.0 value prop (transcript-driven, local processing) |
-| Architecture | HIGH | Integration patterns verified via official FFmpeg.wasm docs, memory lifecycle validated via GitHub issue discussions with confirmed solutions, component boundaries align with existing v1.0 architecture |
-| Pitfalls | HIGH | 7 critical pitfalls confirmed via multiple GitHub issues with reproduction cases, prevention strategies validated via community solutions, memory limits confirmed via browser specs (2GB WebAssembly limit) |
+| Stack | HIGH | mark.js only new dependency, mature and stable (since 2018). All other features use native APIs. CDN vs npm decision validated. |
+| Features | HIGH | Table stakes derived from industry analysis (Descript, Audacity, Pro Tools). Anti-features identified from UX research. Feature prioritization clear (P1/P2/P3). |
+| Architecture | HIGH | v3.0 extends validated v1.0/v2.0 patterns. Integration points tested against existing codebase (TranscriptController already has highlightCutRegions(), CutController has getCutAtTime()). Service wrapping and callback patterns proven. |
+| Pitfalls | HIGH | All 8 critical pitfalls sourced from Mozilla Bugzilla, Chrome developer docs, official mark.js performance guides, WCAG accessibility standards. Prevention strategies validated with code examples. |
 
 **Overall confidence:** HIGH
 
-Research is grounded in official FFmpeg.wasm documentation (v0.12.15 released Jan 2025), verified GitHub issues with confirmed solutions, and browser API specifications. Feature expectations have medium confidence due to limited user validation, but table stakes features are industry-standard patterns. Architecture and pitfalls have high confidence due to multiple verification sources and proven solutions.
+All v3.0 features use established patterns with extensive documentation. The v1.0/v2.0 codebase already implements most infrastructure (transcript rendering, cut region management, audio playback). New components (PreviewService, SearchController) follow existing architectural patterns. The only external dependency (mark.js) is mature, stable, and well-documented.
 
 ### Gaps to Address
 
-**Feature validation gap:** Table stakes and differentiators derived from competitor analysis, not direct user research. Validate during Phase 5 (UAT) by observing user expectations. If users request missing features, consider for v2.1.
+**VBR MP3 seek imprecision tolerance:**
+- Research identifies 0.1-0.2s tolerance needed, but exact value depends on testing with real podcast files
+- **Validation approach**: Phase 2 testing must measure actual seek error across variety of MP3 encoders (LAME, FDK-AAC, ffmpeg native). Document minimum reliable cut duration (likely 0.3-0.5s).
 
-**iOS Safari performance gap:** Research confirms single-thread fallback works on iOS, but processing time impact unclear (likely 2x slower = 6-12 min for 60-min podcast). Validate during Phase 5. If unacceptable, document as known limitation or consider server-side processing option for v2.1.
+**mark.js DOM performance at scale:**
+- Research confirms <100ms for 9,000-10,000 word transcripts (60-min podcast), but not tested beyond that
+- **Validation approach**: Phase 3 testing should include stress test with 90-min podcast (15,000+ words) and monitor DOM node count after 50+ searches. If degradation, implement search result limit or pagination.
 
-**Memory limit edge cases:** Research confirms 45-90 minute podcasts fit in memory, but variable bitrate files, uncompressed formats (WAV), or longer files may exceed limits. Validate during Phase 5 with real user files. If issues occur, refine file size validation thresholds in Phase 4.
+**Dark theme color contrast edge cases:**
+- Research provides recommended palette with WCAG AA ratios, but final colors may need adjustment
+- **Validation approach**: Phase 1 must run browser DevTools accessibility audit on ALL UI states (hover, active, disabled, error, cut region shading, search highlighting). No subjective judgment — require 4.5:1 minimum for normal text.
 
-**FFmpeg command robustness:** Research provides command patterns, but edge cases (overlapping cuts, cuts at file start/end, zero-length segments) need validation. Test explicitly in Phase 2. If issues occur, add validation to CutController in Phase 3.
+**Cut region highlighting visual design:**
+- Research recommends shaded background over strikethrough, but user preference not validated
+- **Optional validation**: Phase 4 could A/B test shaded background vs strikethrough vs dimming with 10-20 users. Not critical — can ship with research-recommended approach and iterate based on feedback.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [GitHub - ffmpegwasm/ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) — Latest version (0.12.15, Jan 2025), API documentation, architecture overview
-- [ffmpeg.wasm Official Documentation](https://ffmpegwasm.netlify.app/) — Installation, performance benchmarks (~25x slower than native), multi-threading setup
-- [Vite Configuration Examples](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/798) — COOP/COEP headers for cross-origin isolation
-- [FFmpeg Filters Documentation](https://ffmpeg.org/ffmpeg-filters.html) — Official filter reference (atrim, asetpts, concat)
+
+**Stack research:**
+- [mark.js Official Documentation](https://markjs.io/) — API, configuration, performance best practices
+- [mark.js on jsDelivr CDN](https://www.jsdelivr.com/package/npm/mark.js) — Version 8.11.1 confirmed, CDN delivery
+- [MDN: CSS Custom Properties](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties) — Native CSS variables for theming
+- [MDN: HTMLMediaElement timeupdate event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/timeupdate_event) — Event frequency (4-66Hz, ~250ms)
+
+**Feature research:**
+- [Descript – AI Video & Podcast Editor](https://www.descript.com/) — Text-based editing patterns, strikethrough visualization
+- [Audacity Manual: Playback Preferences](https://manual.audacityteam.org/man/playback_preferences.html) — Preview playback toggle patterns
+- [Themes - Audacity Manual](https://manual.audacityteam.org/man/themes.html) — Dark theme color palettes for audio editors
+- [mark.js Performance Guide](https://www.jqueryscript.net/text/advanced-mark-highlighting.html) — Asynchronous highlighting best practices
+
+**Architecture research:**
+- [MDN: Media buffering, seeking, and time ranges](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Audio_and_video_delivery/buffering_seeking_time_ranges) — HTML5 Audio seeking accuracy
+- [Best Practices for Dark Mode in Web Design 2026](https://natebal.com/best-practices-for-dark-mode/) — CSS variables vs frameworks
+- [Dark Mode with CSS: A Comprehensive Guide (2026)](https://618media.com/en/blog/dark-mode-with-css-a-comprehensive-guide/) — Implementation patterns
+
+**Pitfalls research:**
+- [Mozilla Bugzilla #1153564](https://bugzilla.mozilla.org/show_bug.cgi?id=1153564) — HTML5 audio seek inaccuracy with VBR files
+- [Mozilla Bugzilla #587465](https://bugzilla.mozilla.org/show_bug.cgi?id=587465) — audio.currentTime low precision, 25 updates/sec
+- [WCAG 2.1 AA Requirements](https://www.w3.org/WAI/WCAG21/quickref/) — 4.5:1 contrast minimum for normal text
+- [BOIA: Dark Mode Doesn't Satisfy WCAG](https://www.boia.org/blog/offering-a-dark-mode-doesnt-satisfy-wcag-color-contrast-requirements) — Contrast applies to all themes
+- [timomeh.de: User-defined color theme without flash](https://timomeh.de/posts/user-defined-color-theme-in-the-browser-without-the-initial-flash) — Inline script FOUC prevention
 
 ### Secondary (MEDIUM confidence)
-- [Building Browser Audio Tools - SoundTools](https://soundtools.io/blog/building-browser-audio-tools-ffmpeg-wasm/) — Memory management patterns, 100MB file usage (~300-400MB peak)
-- [FFmpeg.wasm Memory Issues - GitHub #516](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/516) — 2GB WebAssembly hard limit confirmed
-- [SharedArrayBuffer Requirements - GitHub #234](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/234) — Cross-origin isolation setup requirements
-- [iOS Safari Compatibility - GitHub #299](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/299) — SharedArrayBuffer not supported in Safari Web Workers
 
-### Tertiary (LOW confidence)
-- [Progress Event Limitations - GitHub #600](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/600) — Progress events experimental, values unreliable
-- [Speed Discussion - GitHub #326](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/326) — Performance characteristics (~20-25x slower than native)
-- Community blog posts on FFmpeg.wasm integration patterns — Various implementation experiences
+- [The best light/dark mode theme toggle in JavaScript](https://whitep4nth3r.com/blog/best-light-dark-mode-theme-toggle-javascript/) — localStorage + prefers-color-scheme cascade
+- [GitHub Gist: Audio Player with skip function](https://gist.github.com/neilwave/b425d04997540513b05e3afe75c03381) — currentTime skip pattern
+- [Debounce Your Search and Optimize Your React Input Component](https://medium.com/@limaniratnayake/debounce-your-search-and-optimize-your-react-input-component-49a4e62e7e8f) — 300ms debounce standard
+- [Onboarding UX Patterns: Empty States](https://www.useronboard.com/onboarding-ux-patterns/empty-states/) — Static instructions vs tutorial modals
 
 ---
-*Research completed: 2026-01-26*
+*Research completed: 2026-01-28*
 *Ready for roadmap: yes*

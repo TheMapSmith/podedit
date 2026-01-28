@@ -1,8 +1,8 @@
-# Feature Research
+# Feature Research: v3.0 UX & Preview Enhancements
 
-**Domain:** Browser-based audio processing for podcast editing
-**Researched:** 2026-01-26
-**Confidence:** MEDIUM
+**Domain:** Podcast/Audio Editor UX Features
+**Researched:** 2026-01-28
+**Confidence:** HIGH
 
 ## Feature Landscape
 
@@ -12,14 +12,11 @@ Features users assume exist. Missing these = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Process trigger button | Users need clear affordance to start processing | LOW | Standard pattern: "Export" or "Download Edited Audio" button. Should be visually distinct, placed near cut list/timeline |
-| Determinate progress indicator | Long-running operations require progress feedback to prevent abandonment | MEDIUM | Research shows users wait 3x longer with animated progress bar. Show percentage + estimated time remaining |
-| Cancel/abort processing | Users expect ability to stop long operations | MEDIUM | Critical UX issue: many professional audio tools have non-functional cancel buttons. Must actually stop processing and clean up resources |
-| Memory error handling | Browser memory limits (2-4GB) require graceful failure | MEDIUM | Handle QuotaExceededError, provide clear message about file size limits, suggest workarounds |
-| File download delivery | Browser download is expected pattern for generated files | LOW | Use Blob + createObjectURL() + anchor download attribute. Must call revokeObjectURL() to prevent memory leaks |
-| Filename suggestion | Generated files need sensible default names | LOW | Convention: `{original-name}_edited_{timestamp}.{ext}`. Use YYYYMMDD_HHMM format for timestamp |
-| Format preservation | Output should match input format by default | MEDIUM | If user uploads MP3, export MP3. Avoids unexpected quality loss or compatibility issues |
-| Processing status visibility | User needs to know what's happening during processing | LOW | Show current operation: "Loading FFmpeg...", "Analyzing audio...", "Applying cuts...", "Generating output..." |
+| Cut region visual feedback in transcript | Text-based editors show deleted/marked content visually | LOW | Strikethrough, dimming, or color coding - industry standard in Descript, Riverside, DaVinci Resolve |
+| Search with match highlighting | Users expect Ctrl+F-like functionality with visual feedback | LOW | mark.js provides this out-of-box. Real-time highlighting as user types is expected |
+| Dark theme option | Professional audio tools default to dark UI (Pro Tools, Audacity, DAWs) | MEDIUM | Eye strain reduction for long editing sessions. Expected in creative software |
+| Preview playback accuracy | Playback must reflect the edit result (skip cuts) | HIGH | Users need confidence that preview matches final output. Complex timing logic |
+| Getting started guidance | Empty state instructions prevent "what do I do now?" confusion | LOW | Brief, actionable text. Links/buttons to primary actions. Not tutorials |
 
 ### Differentiators (Competitive Advantage)
 
@@ -27,14 +24,11 @@ Features that set the product apart. Not required, but valuable.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| No upload required | Privacy + speed: process locally without server round-trip | LOW | Already decided: browser-based processing. Strong differentiator for privacy-conscious users |
-| Transcript-driven cuts | Text-based editing is faster than waveform scrubbing | LOW | Core value already built in v1.0. Differentiates from traditional DAWs |
-| Cut preview playback | Verify cuts before processing saves time on re-processing | MEDIUM | Play across cut boundary to hear transition. Useful for 45-90min files where re-processing is costly |
-| Processing time estimate | Set expectations upfront based on file size and cut count | MEDIUM | Show estimate before processing starts: "This will take approximately 2-3 minutes" |
-| Browser compatibility check | Detect WebAssembly support, show clear error if incompatible | LOW | Feature detection: `if (!window.WebAssembly)` with fallback message. Prevents cryptic failures |
-| Memory usage indicator | Show current memory usage, warn before hitting limits | HIGH | Track approximate memory during processing, warn at 80% threshold. Helps users understand constraints |
-| Processing log/details | Advanced users want to see FFmpeg commands and output | LOW | Show FFmpeg command being executed, capture stdout/stderr. Helps debugging and builds trust |
-| Auto-save cut list | Don't lose work if processing fails or browser crashes | MEDIUM | Save cut list to localStorage before processing starts. Restore on page reload |
+| Always-skip-cuts preview (no toggle) | Simplified mental model: preview = final result, always | MEDIUM | Most editors use toggle mode. Always-on is simpler but requires clear indicator |
+| Shaded background for cuts (not strikethrough) | More subtle than strikethrough, less "document editing" feel | LOW | Differentiates from Descript's strikethrough. Better for audio vs video editing |
+| Real-time search (no search button) | Instant feedback, fewer clicks | LOW | Debounced input (300ms). Feels more responsive than submit-button search |
+| Minimal onboarding (static text only) | Respects user intelligence, avoids modal fatigue | LOW | Empty state instructions vs walkthroughs/tooltips. Faster time-to-value |
+| Cut region count in UI | Quick visual validation ("I marked 5 cuts") | LOW | Status text or badge. Useful for podcast workflow (mental checklist) |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
@@ -42,261 +36,719 @@ Features that seem good but create problems.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Automatic preview generation | "I want to hear result before export" | Doubles processing time, doubles memory usage. For 90min file, generates 90min of preview before user can export | Manual "Preview Cut" button that plays 5 seconds around a specific cut boundary |
-| Undo/redo after processing | "I made a mistake, undo the export" | Browser processing is destructive. Can't undo after export without re-processing entire file | Keep original file + cut list intact. User can adjust cuts and re-process (non-destructive workflow) |
-| Real-time waveform during processing | "Show me visual feedback" | FFmpeg.wasm doesn't expose frame-by-frame output. Waveform requires separate decoding pass | Use determinate progress bar + current operation text. Simpler and sufficient |
-| Background processing while editing | "Let me keep editing while it processes" | FFmpeg.wasm runs in web worker but blocks file access. Can't safely edit cut list while processing same file | Show modal dialog during processing, prevent editing. Clear "processing" vs "editing" states |
-| Automatic filename generation | "Just download it without asking" | Users lose track of files, can't choose location. Browser security requires user gesture for download | Show file save dialog with suggested name. User confirms location and can rename |
-| Format conversion options | "Export as WAV/MP3/AAC" | Adds UI complexity, increases testing surface, complicates error handling. Format support varies by browser | Preserve input format for v2.0. Add format conversion in v2.x if users actually request it |
+| Toggle between "preview mode" and "edit mode" | "I want to hear original vs edited" | Adds cognitive load. Which mode am I in? Accidental edits in wrong mode | Always-skip-cuts preview. Click word to hear original context (seek before cut) |
+| Guided walkthrough/tutorial on first use | "Help users learn the tool" | Users skip tutorials, then forget. Modal fatigue. Blocks primary workflow | Empty state instructions + progressive disclosure. Learn by doing |
+| Search match navigation (next/prev buttons) | "Jump between search results" | Adds UI complexity for rare use case. Transcript is short enough to scan | Highlight all matches simultaneously. Visual scanning is faster |
+| Multiple theme options (light/dark/high-contrast) | "Give users choice" | Testing burden, design complexity. Most users pick dark and never change | Ship dark theme only. Light theme is future enhancement if requested |
+| Cut region color customization | "Let users personalize" | Scope creep. Color choice paralysis. Accessibility testing multiplies | Use research-validated default (yellow/amber for warnings/deletions) |
+| Animated transitions for cut highlights | "Smooth UX feels polished" | Performance cost on large transcripts (1000+ words). Unnecessary flourish | Instant highlight. Performance > aesthetics for editing tools |
 
 ## Feature Dependencies
 
 ```
-File Download Delivery
-    └──requires──> Process Trigger Button
-                       └──requires──> FFmpeg.wasm Loading
-                                          └──requires──> Browser Compatibility Check
+Preview Playback (skip cuts)
+    └──requires──> Cut Region Data
+    └──requires──> Audio Player Integration
+    └──conflicts──> Seek-to-word (must handle seek into cut region)
 
-Progress Indicator
-    └──requires──> Processing Status Visibility
-                       └──enhances──> Cancel/Abort Processing
+Cut Region Highlighting
+    └──requires──> Transcript Rendering
+    └──requires──> Cut Region Data
+    └──enhances──> Preview Playback (visual confirmation)
 
-Cut Preview Playback
-    └──requires──> Audio Playback (already built in v1.0)
-    └──conflicts──> Automatic Preview Generation (memory usage)
+Search with Highlighting
+    └──requires──> Transcript Rendering
+    └──requires──> mark.js or equivalent
+    └──conflicts──> Cut Region Highlighting (CSS specificity)
 
-Auto-save Cut List
-    └──enhances──> Cancel/Abort Processing (preserves work if aborted)
-    └──enhances──> Memory Error Handling (can recover from failure)
+Dark Theme
+    └──independent──> (standalone feature)
+    └──enhances──> All Features (readability)
 
-Processing Time Estimate
-    └──requires──> File Size Analysis
-    └──enhances──> Progress Indicator (sets expectations)
+Getting Started Instructions
+    └──requires──> Empty State Detection
+    └──replaces──> Tutorial Modals (anti-feature)
 ```
 
 ### Dependency Notes
 
-- **File Download requires Process Trigger:** Can't download until processing completes. Process trigger initiates the workflow.
-- **Progress requires Status Visibility:** Progress percentage is meaningless without context about what operation is running.
-- **Cut Preview conflicts with Auto Preview:** Both consume memory. Preview-on-demand is safer for large files.
-- **Auto-save enhances Cancel/Abort:** If user cancels processing, their cut list is preserved for retry.
-- **Time Estimate enhances Progress:** Users tolerate waits better when expectations are set upfront.
+- **Preview Playback requires Seek Handling:** If user clicks word inside a cut region, must either (a) prevent seek, (b) seek to nearest non-cut boundary, or (c) seek but show indicator. Recommend (b) for consistency.
+- **Search highlighting conflicts with Cut highlighting:** Both apply CSS classes. Must use distinct class names and manage z-index/precedence. Searched text inside cut region should show both states.
+- **Dark theme is independent:** Can ship before or after other v3.0 features. No blocking dependencies.
+- **Getting Started replaces tutorial modals:** These are mutually exclusive approaches. Choose one.
 
 ## MVP Definition
 
-### Launch With (v2.0)
+### v3.0 Launch With
 
-Minimum viable audio processing — what's needed to complete the workflow.
+Minimum viable UX enhancements - what's needed to improve editing workflow.
 
-- [x] **Process trigger button** — Clear affordance to start processing (P1)
-- [x] **Determinate progress indicator** — Percentage + current operation text (P1)
-- [x] **Cancel/abort processing** — Stop button that actually works (P1)
-- [x] **Memory error handling** — Graceful failure with clear message (P1)
-- [x] **File download delivery** — Standard browser download with Blob URL (P1)
-- [x] **Filename suggestion** — `{original}_edited_{timestamp}.{ext}` pattern (P1)
-- [x] **Format preservation** — Output matches input format (P1)
-- [x] **Browser compatibility check** — Detect WebAssembly, show error if unsupported (P1)
+- [x] **Cut region shaded background** — Table stakes for text-based editors (P1)
+- [x] **Always-skip-cuts preview playback** — Core value: preview = final result (P1)
+- [x] **Real-time transcript search with highlighting** — Expected search UX (P1)
+- [x] **Dark theme** — Professional audio editor standard (P1)
+- [x] **Getting started instructions (static text)** — Onboarding without modal fatigue (P1)
 
-### Add After Validation (v2.x)
+### Add After v3.0 (v3.x)
 
-Features to add once core processing is working and users request them.
+Features to add once core UX enhancements are validated.
 
-- [ ] **Cut preview playback** — Verify cuts before processing (P2, if users report re-processing pain)
-- [ ] **Processing time estimate** — Set expectations before processing starts (P2, if users report uncertainty)
-- [ ] **Processing log/details** — Show FFmpeg commands for debugging (P2, if users report errors)
-- [ ] **Auto-save cut list** — Recover from failures (P2, if users report lost work)
+- [ ] **Search match count indicator** — "5 matches found" text (P2, if users report difficulty finding matches)
+- [ ] **Cut region duration display** — Show time saved per cut (P2, if users request)
+- [ ] **Keyboard shortcuts for search** — Ctrl+F to focus search, Esc to clear (P2, power user feature)
+- [ ] **Export cut regions with search context** — JSON includes search terms used (P3, edge case)
 
-### Future Consideration (v3+)
+### Future Consideration (v4+)
 
 Features to defer until clear user demand exists.
 
-- [ ] **Memory usage indicator** — Complex to implement accurately, unclear value until users hit limits
-- [ ] **Format conversion options** — Adds complexity, may never be needed if format preservation works well
-- [ ] **Batch processing** — Process multiple files, but conflicts with "one file at a time" constraint
-- [ ] **Cloud backup of cut lists** — Requires server infrastructure, conflicts with "browser-only" constraint
+- [ ] **Light theme option** — Most audio editors are dark-only. Add if requested
+- [ ] **Search match navigation UI** — Next/prev buttons. Transcript is short, visual scan works
+- [ ] **Cut region color customization** — Personalization adds complexity
+- [ ] **Animated transitions** — Performance cost, unclear value
+- [ ] **Advanced search (regex, case-sensitive toggle)** — Power user feature, unclear demand
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Process trigger button | HIGH | LOW | P1 |
-| Progress indicator (determinate) | HIGH | MEDIUM | P1 |
-| Cancel/abort processing | HIGH | MEDIUM | P1 |
-| Memory error handling | HIGH | MEDIUM | P1 |
-| File download delivery | HIGH | LOW | P1 |
-| Filename suggestion | MEDIUM | LOW | P1 |
-| Format preservation | HIGH | MEDIUM | P1 |
-| Browser compatibility check | HIGH | LOW | P1 |
-| Cut preview playback | MEDIUM | MEDIUM | P2 |
-| Processing time estimate | MEDIUM | MEDIUM | P2 |
-| Processing log/details | LOW | LOW | P2 |
-| Auto-save cut list | MEDIUM | MEDIUM | P2 |
-| Memory usage indicator | LOW | HIGH | P3 |
-| Format conversion | LOW | HIGH | P3 |
+| Cut region shaded background | HIGH | LOW | P1 |
+| Always-skip-cuts preview | HIGH | MEDIUM | P1 |
+| Real-time search with highlighting | HIGH | LOW | P1 |
+| Dark theme | HIGH | MEDIUM | P1 |
+| Getting started instructions | MEDIUM | LOW | P1 |
+| Search match count | MEDIUM | LOW | P2 |
+| Cut region duration display | MEDIUM | LOW | P2 |
+| Keyboard shortcuts | LOW | MEDIUM | P2 |
+| Light theme | LOW | MEDIUM | P3 |
+| Search navigation UI | LOW | MEDIUM | P3 |
+| Color customization | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for v2.0 launch (audio processing MVP)
-- P2: Should have, add when users encounter pain points
+- P1: Must have for v3.0 launch (UX improvements to existing workflow)
+- P2: Should have, add when users report pain points
 - P3: Nice to have, defer until clear demand
 
 ## UX Pattern Details
 
-### Processing Trigger
+### Cut Region Visual Feedback
 
-**Placement:** Primary action near cut list summary
-**Label:** "Export Edited Audio" (clearer than "Process" or "Download")
-**Visual treatment:** Primary button color, slightly larger than secondary actions
-**State management:**
-- Disabled when no cuts marked (gray, with tooltip: "Mark at least one cut to export")
-- Disabled during processing (prevent double-click)
-- Enabled when ready to process
+**Industry Patterns:**
 
-### Progress Indicator
+Transcript-based editors use three main visualization approaches:
 
-**Type:** Determinate progress bar (percentage-based)
-**Elements:**
-- Horizontal bar showing 0-100% fill
-- Percentage text: "47% complete"
-- Current operation text: "Applying cut 3 of 8..."
-- Time estimate (if available): "About 1 minute remaining"
-- Cancel button positioned next to progress bar
+1. **Strikethrough (Descript, DaVinci Resolve, Riverside):** Text-through line indicates deletion. Clear semantic meaning from document editing conventions.
 
-**Update frequency:**
-- Progress percentage: every 500ms minimum (avoid UI thrashing)
-- Operation text: when FFmpeg stage changes
+2. **Dimming/Opacity (Audacity waveform):** Reduced opacity (0.5-0.7) indicates inactive/deleted content. Subtle, less disruptive.
 
-### Error Handling
+3. **Color coding (Rev, CapCut):** Background color (yellow, red, amber) indicates marked regions. High visibility.
 
-**Memory errors:**
-```
-Error Dialog:
-Title: "File Too Large for Browser Processing"
-Body: "This audio file (127 MB) exceeds browser memory limits.
+**Recommendation for PodEdit:**
 
-Try these solutions:
-• Close other browser tabs to free memory
-• Process a shorter section of the file
-• Use the JSON export and process with FFmpeg locally
+**Shaded background (color coding) with optional dimming.**
 
-File size limit: Approximately 90 minutes of audio"
-
-Actions: [Close] [Export JSON Instead]
+```css
+.transcript-word.in-cut-region {
+  background-color: rgba(255, 193, 7, 0.2); /* Amber, 20% opacity */
+  opacity: 0.7; /* Dim text slightly */
+  border-left: 3px solid #ffc107; /* Visual boundary marker */
+  padding-left: 4px;
+}
 ```
 
-**Format errors:**
-```
-Error Dialog:
-Title: "Unsupported Audio Format"
-Body: "This file format is not supported for browser processing.
+**Rationale:**
+- Strikethrough feels too "document editing" (Google Docs). PodEdit is audio-focused.
+- Pure dimming is too subtle, users miss it.
+- Shaded background + border provides clear visual feedback without aggressive strikethrough.
+- Amber/yellow color codes "warning/removal" universally (traffic lights, UI conventions).
 
-Supported formats: MP3, WAV, M4A, OGG
-Detected format: FLAC
+**Accessibility:**
+- Ensure contrast ratio ≥ 3:1 for background color
+- Use border as secondary indicator (not color alone)
+- Screen reader: aria-label="marked for removal" on cut regions
 
-Convert the file to a supported format and try again."
+**Edge Cases:**
+- **Active word inside cut:** Show both active highlight (yellow) and cut shading. Use z-index layering.
+- **Partial word overlap:** If cut starts mid-word, entire word gets shading (simpler than splitting spans).
 
-Actions: [Close]
-```
+### Preview Playback (Skip Cuts)
 
-**Processing errors:**
-```
-Error Dialog:
-Title: "Processing Failed"
-Body: "An error occurred while processing the audio.
+**Industry Patterns:**
 
-Technical details:
-[FFmpeg stderr output]
+Most audio editors use **toggle mode:**
 
-Your cut list has been saved. You can try again or export the cut list as JSON."
+- Audacity: "Play Cut Preview" plays 2 seconds before + after cut, skipping middle
+- Pro Tools: "Pre-roll/Post-roll" preview with toggle
+- Descript: Always-on (text-based editing, preview = timeline)
 
-Actions: [Try Again] [Export JSON] [Close]
-```
+**Recommendation for PodEdit:**
 
-### File Download
+**Always-skip-cuts preview (no toggle).**
 
-**Pattern:**
-1. Create Blob from processed audio data
-2. Generate blob URL: `URL.createObjectURL(blob)`
-3. Create temporary anchor element
-4. Set `download` attribute with suggested filename
-5. Programmatically click anchor
-6. Immediately revoke blob URL: `URL.revokeObjectURL(url)`
+**Implementation:**
 
-**Filename template:**
 ```javascript
-// Input: "podcast-episode-42.mp3"
-// Output: "podcast-episode-42_edited_20260126_1435.mp3"
+// In audio playback loop
+audioElement.ontimeupdate = () => {
+  const currentTime = audioElement.currentTime;
+  const cutRegion = findCutRegionAt(currentTime);
 
-const suggestedFilename = `${originalName}_edited_${timestamp}.${extension}`;
+  if (cutRegion) {
+    // Jump to end of cut region
+    audioElement.currentTime = cutRegion.endTime;
+  }
+};
 ```
 
-**Modern alternative (if supported):**
-Use File System Access API `showSaveFilePicker()` to let user choose location upfront. Fall back to blob URL method for compatibility.
+**Visual Indicator:**
+
+Show preview mode is active:
+- Status text: "Preview mode (skipping 3 cuts)"
+- Cut count badge in player controls
+- Icon in play button (e.g., scissors icon overlay)
+
+**Edge Cases:**
+
+1. **Seek into cut region:** If user clicks word inside cut, seek to `cut.endTime` (skip to next audible word).
+
+2. **Overlapping cuts:** If cuts overlap, merge into single region before preview.
+
+3. **Cut at end of audio:** If last cut extends to duration, stop playback at `cut.startTime`.
+
+4. **Rapid cut succession:** If gaps between cuts < 0.5s, may sound choppy. Consider merging adjacent cuts in preview logic.
+
+**UX Consideration:**
+
+Users may want to hear context around cut (did I cut too much?). Solution:
+- Preview mode is default
+- Click word before/after cut to seek and hear original context
+- No toggle needed - seeking provides temporary "hear original" behavior
+
+### Transcript Search with Highlighting
+
+**Industry Patterns:**
+
+- **Browser Ctrl+F:** Native search, browser-rendered highlights, next/prev navigation
+- **Google Docs:** Real-time search, highlight all matches, match count, scroll-to-match
+- **Slack:** Debounced search (300ms), highlight matches, clear on Esc
+- **mark.js:** JavaScript library, configurable, accessibility support
+
+**Recommendation for PodEdit:**
+
+**Real-time search with mark.js, debounced 300ms.**
+
+**Implementation:**
+
+```javascript
+import Mark from 'mark.js';
+
+const markInstance = new Mark(transcriptContainer);
+let searchTimeout;
+
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+
+  searchTimeout = setTimeout(() => {
+    const query = e.target.value.trim();
+
+    // Clear previous highlights
+    markInstance.unmark();
+
+    if (query.length > 0) {
+      // Highlight new matches
+      markInstance.mark(query, {
+        accuracy: 'partial', // Match substrings
+        caseSensitive: false,
+        className: 'search-highlight',
+        separateWordSearch: false
+      });
+    }
+  }, 300); // 300ms debounce
+});
+```
+
+**Styling:**
+
+```css
+.search-highlight {
+  background-color: #ffeb3b; /* Yellow */
+  color: #000;
+  padding: 2px 0;
+  border-radius: 2px;
+}
+
+/* Higher specificity for search inside cut region */
+.in-cut-region .search-highlight {
+  background: linear-gradient(
+    to bottom,
+    #ffeb3b 0%,
+    #ffeb3b 50%,
+    rgba(255, 193, 7, 0.3) 50%,
+    rgba(255, 193, 7, 0.3) 100%
+  ); /* Split highlight: search + cut */
+}
+```
+
+**UX Details:**
+
+- **Debounce delay:** 300ms is standard for search-as-you-type (balances responsiveness with performance)
+- **Minimum query length:** No minimum (show results for single character)
+- **Case sensitivity:** Default off (most users expect case-insensitive)
+- **Match count:** Show "5 matches" text below search box (P2 feature, not v3.0 MVP)
+- **Clear button:** X icon inside search input to clear query
+- **Keyboard shortcuts:** Esc to clear search (P2 feature)
+
+**Performance:**
+
+- mark.js handles large transcripts efficiently (tested to 50,000 words)
+- For PodEdit (45-90 min podcasts = ~9,000-18,000 words), no performance concerns
+- Debouncing prevents excessive DOM manipulation
+
+**Accessibility:**
+
+- mark.js wraps matches in `<mark>` elements (semantic HTML)
+- Screen readers announce "X matches found"
+- Search input has `role="search"` and `aria-label="Search transcript"`
+
+### Dark Theme Design
+
+**Industry Standards:**
+
+Professional audio editors use dark themes by default:
+
+- **Pro Tools:** Dark gray (#2b2b2b) background, light gray (#e0e0e0) text
+- **Audacity:** Customizable dark themes, blue-tinted waveforms
+- **DarkAudacity:** #1e1e1e background, #d4d4d4 text (VS Code colors)
+- **Descript:** #0f0f0f background, #fafafa text, accent colors for UI elements
+
+**Recommendation for PodEdit:**
+
+**Professional dark theme with audio editor conventions.**
+
+**Color Palette:**
+
+```css
+:root {
+  /* Backgrounds */
+  --bg-primary: #0f172a;    /* Deep blue-gray (body) */
+  --bg-secondary: #1e293b;  /* Elevated surfaces (panels) */
+  --bg-tertiary: #334155;   /* Interactive elements (buttons) */
+
+  /* Text */
+  --text-primary: #f1f5f9;   /* High contrast (body text) */
+  --text-secondary: #94a3b8; /* Medium contrast (labels) */
+  --text-tertiary: #64748b;  /* Low contrast (disabled) */
+
+  /* Accents */
+  --accent-primary: #3b82f6;   /* Blue (primary actions) */
+  --accent-success: #10b981;   /* Green (success states) */
+  --accent-warning: #f59e0b;   /* Amber (cuts, warnings) */
+  --accent-danger: #ef4444;    /* Red (delete, cancel) */
+
+  /* Borders */
+  --border-subtle: #475569;
+  --border-default: #64748b;
+}
+```
+
+**Design Principles:**
+
+1. **Use desaturated colors:** Dark gray instead of pure black (#0f172a vs #000000). Reduces eye strain.
+
+2. **High contrast for text:** WCAG AA minimum 7:1 ratio. White text (#f1f5f9) on dark background (#0f172a) = 14.3:1.
+
+3. **Layered surfaces:** Use 3 background levels (primary, secondary, tertiary) to create depth without shadows.
+
+4. **Accent colors for meaning:** Blue = primary, Green = success, Amber = warning, Red = danger. Universal color codes.
+
+5. **Avoid pure white:** #f1f5f9 instead of #ffffff. Less harsh, better for long sessions.
+
+**Audio Editor Specifics:**
+
+- **Waveform colors:** If waveform visualization added later, use blue-tinted (#3b82f6) waveform on dark gray background (Audacity pattern)
+- **Playhead:** Bright accent color (#3b82f6) for visibility
+- **Cut regions:** Amber (#f59e0b) for "warning/removal" semantic meaning
+- **Active word:** Yellow (#fde047) highlight (high contrast, readable)
+
+**Accessibility:**
+
+- All text meets WCAG AA contrast (4.5:1 for normal, 3:1 for large text)
+- Focus indicators use high-contrast outline (3px solid #3b82f6)
+- Form inputs have visible borders in dark theme (not invisible)
+
+**Implementation Notes:**
+
+- Define CSS variables at `:root` level
+- Replace all hardcoded colors in existing styles
+- Test in multiple browsers (Safari WebKit rendering differs)
+- Avoid `background: white` anywhere (use `var(--bg-primary)`)
+
+### Getting Started Instructions
+
+**Industry Patterns:**
+
+Modern SaaS onboarding uses **empty state design:**
+
+- **Notion:** "Get started" text with action buttons, no modals
+- **Figma:** Minimal placeholder text, direct link to primary action
+- **Linear:** Brief instructions (2 parts instruction, 1 part delight)
+
+**Avoid:**
+- Tutorial modals (users skip, then forget)
+- Walkthroughs (block primary workflow)
+- Tooltips on page load (modal fatigue)
+
+**Recommendation for PodEdit:**
+
+**Empty state instructions with direct action links.**
+
+**Implementation:**
+
+```html
+<!-- Before file upload -->
+<div class="empty-state">
+  <h2>Edit your podcast in 3 steps</h2>
+  <ol class="onboarding-steps">
+    <li>
+      <strong>Upload audio</strong> — Click below to select your podcast file
+    </li>
+    <li>
+      <strong>Generate transcript</strong> — Click words to navigate, mark cuts
+    </li>
+    <li>
+      <strong>Export edited audio</strong> — Download your polished episode
+    </li>
+  </ol>
+  <p class="hint">All processing happens in your browser. Your audio never leaves your device.</p>
+</div>
+
+<!-- File upload button immediately visible below -->
+<input type="file" id="file-input" accept="audio/*">
+```
+
+**Design Principles:**
+
+1. **Brief, scannable text:** 3 numbered steps. Each step is 5-7 words.
+
+2. **Positive framing:** "Edit your podcast" (outcome) not "Welcome to PodEdit" (generic).
+
+3. **Progressive disclosure:** Show only step 1 initially. Steps 2-3 appear after completing step 1.
+
+4. **Direct action links:** "Click below" links to actual file input. No separate tutorial.
+
+5. **Two parts instruction, one part delight:** Privacy note ("never leaves your device") is the delight.
+
+**Empty State Stages:**
+
+| Stage | Visible Elements | Instructions |
+|-------|------------------|--------------|
+| No file uploaded | Empty state text, file input | Step 1: Upload audio |
+| File loaded, no transcript | Transcript section, "Generate Transcript" button | Step 2: Generate transcript |
+| Transcript loaded, no cuts | Cut controls, "Mark Start/End" buttons | Step 3: Mark cuts, export |
+| Cuts marked | Export button enabled | Ready to export |
+
+**Styling:**
+
+```css
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-state h2 {
+  font-size: 24px;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.onboarding-steps {
+  text-align: left;
+  max-width: 400px;
+  margin: 0 auto 20px;
+  padding-left: 20px;
+}
+
+.onboarding-steps li {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.onboarding-steps strong {
+  color: var(--text-primary);
+}
+
+.hint {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+```
+
+**Accessibility:**
+
+- Use semantic HTML (`<ol>`, `<li>`, `<strong>`)
+- Screen reader announces "List of 3 items"
+- Skip link to file input: "Skip to upload audio"
+
+**Content Tone:**
+
+- Concise, confident, helpful
+- No jargon ("click words" not "timestamp-based navigation")
+- Emphasize speed/simplicity ("in 3 steps")
+- Reinforce privacy value prop (differentiator)
 
 ## Competitor Feature Analysis
 
-| Feature | Descript (cloud-based) | Audacity (desktop) | Our Approach (browser) |
-|---------|------------------------|-------------------|------------------------|
-| Processing location | Server-side | Native desktop | Browser WebAssembly |
-| Progress indication | Real-time percentage + waveform preview | Modal dialog with percentage | Modal dialog with percentage + operation text |
-| Cancel processing | Yes, instant | Yes, instant | Yes, must clean up resources properly |
-| Preview before export | Automatic (text-based editing) | Manual playback of timeline | Manual preview of cut boundaries |
-| Undo after export | Yes (non-destructive, cloud storage) | History panel (session only) | No undo (re-process with adjusted cuts) |
-| File size limits | Unlimited (server processing) | Limited by disk space | Limited by browser memory (2-4GB) |
-| Format options | Multiple formats on export | Multiple formats via export dialog | Preserve input format (simpler) |
-| Download delivery | Cloud storage + download | Save to chosen location | Browser download with suggested name |
+| Feature | Descript (cloud) | Audacity (desktop) | PodEdit (browser) |
+|---------|------------------|-------------------|-------------------|
+| Cut visualization | Strikethrough text | Waveform dimming | Shaded background (amber) |
+| Preview mode | Always-on (text = timeline) | Toggle "Play Cut Preview" | Always-on (no toggle) |
+| Search highlighting | Real-time, match count | No transcript search | Real-time, mark.js |
+| Dark theme | Default dark (#0f0f0f) | Customizable dark themes | Default dark (#0f172a) |
+| Onboarding | Video tutorial modal | Help menu tooltips | Empty state instructions |
+| Search controls | Next/prev buttons, case toggle | N/A | No controls (visual scan) |
+| Cut indicators | Timeline markers + text strikethrough | Waveform visualization | Transcript shading only |
 
-**Key takeaway:** Browser-based approach trades format flexibility and undo capability for privacy and no-upload workflow. This aligns with the "transcript-driven, browser-only" core value.
+**Key Differentiation:**
+
+- **PodEdit simplifies preview:** No toggle needed. Preview = final result, always.
+- **PodEdit uses subtle cut visualization:** Shaded background feels less "document editing" than Descript's strikethrough.
+- **PodEdit minimizes onboarding friction:** Static instructions vs tutorial videos. Faster time-to-value.
+- **PodEdit focuses on transcript workflow:** No waveform (Audacity). No video (Descript). Pure podcast editing.
+
+## Implementation Complexity Notes
+
+### Cut Region Highlighting: LOW
+
+**Effort:** 2-4 hours
+
+**Tasks:**
+1. Add CSS class `.in-cut-region` with background color, opacity, border
+2. Update `highlightCutRegions()` method to apply class to transcript words
+3. Test edge cases (active word in cut, overlapping cuts)
+
+**Dependencies:** Existing `highlightCutRegions()` method in `transcriptController.js` (already implemented in v2.0)
+
+**Risks:** None. Purely CSS + class toggling.
+
+### Preview Playback: MEDIUM
+
+**Effort:** 8-12 hours
+
+**Tasks:**
+1. Detect when playback enters cut region (in `audioService.js` time update handler)
+2. Seek to `cut.endTime` when cut detected
+3. Handle edge cases (seek into cut, cut at end of audio, overlapping cuts)
+4. Add visual indicator (status text, icon, badge)
+5. Test timing accuracy (ensure smooth playback across cuts)
+
+**Dependencies:**
+- Existing audio player in `audioService.js`
+- Existing cut regions from `cutController.js`
+
+**Risks:**
+- Timing precision: If audio buffering causes delay, skips may sound choppy
+- Multiple cuts: Need to handle rapid succession of cuts (merge if gaps < 0.5s)
+
+### Transcript Search: LOW
+
+**Effort:** 4-6 hours
+
+**Tasks:**
+1. Add search input to UI (HTML + CSS)
+2. Install mark.js library (`npm install mark.js`)
+3. Implement debounced search handler (300ms)
+4. Apply mark.js highlighting on search
+5. Handle CSS conflict with cut region highlighting (layered styles)
+6. Test performance on large transcripts (10,000+ words)
+
+**Dependencies:**
+- mark.js library (external dependency, well-maintained)
+- Existing transcript rendering in `transcriptController.js`
+
+**Risks:**
+- CSS specificity conflict (search highlight vs cut highlight) - use `!important` or higher specificity
+- Performance on very large transcripts (unlikely issue, mark.js handles 50k+ words)
+
+### Dark Theme: MEDIUM
+
+**Effort:** 8-16 hours
+
+**Tasks:**
+1. Define CSS variables for color palette (20+ variables)
+2. Replace all hardcoded colors in existing styles (~150 instances)
+3. Test contrast ratios for accessibility (WCAG AA)
+4. Test in multiple browsers (Safari, Firefox, Chrome)
+5. Adjust UI element colors (buttons, borders, shadows)
+6. Update focus indicators for dark background
+
+**Dependencies:** None (standalone CSS changes)
+
+**Risks:**
+- Scope creep: Easy to over-engineer (multiple themes, customization)
+- Accessibility: Must test all text/background combinations for contrast
+- Browser differences: Safari renders colors slightly differently
+
+**Mitigation:** Ship dark theme only. No light theme or customization in v3.0.
+
+### Getting Started Instructions: LOW
+
+**Effort:** 2-4 hours
+
+**Tasks:**
+1. Write copy (3 numbered steps + privacy note)
+2. Add HTML structure (empty state div)
+3. Style empty state (centered, readable)
+4. Show/hide based on app state (no file, no transcript, etc.)
+5. Test readability and tone
+
+**Dependencies:** None (pure HTML + CSS + conditional rendering)
+
+**Risks:** None. Trivial implementation.
+
+## Feature Interactions
+
+### Cut Highlighting + Search Highlighting
+
+**Problem:** Both features add CSS classes to transcript words. Styles may conflict.
+
+**Solution:**
+
+```css
+/* Base highlights */
+.transcript-word.in-cut-region {
+  background-color: rgba(255, 193, 7, 0.2);
+  opacity: 0.7;
+}
+
+.transcript-word mark.search-highlight {
+  background-color: #ffeb3b;
+  color: #000;
+}
+
+/* Combined state: search match inside cut region */
+.transcript-word.in-cut-region mark.search-highlight {
+  /* Show both: split gradient or layered effect */
+  background: linear-gradient(
+    to right,
+    #ffeb3b 0%,
+    #ffeb3b 80%,
+    rgba(255, 193, 7, 0.2) 80%,
+    rgba(255, 193, 7, 0.2) 100%
+  );
+  opacity: 1; /* Override cut region opacity */
+}
+```
+
+**Result:** Search matches are always visible, even inside cut regions. Cut regions remain visually distinct.
+
+### Preview Playback + Seek-to-Word
+
+**Problem:** If user clicks word inside cut region, audio seeks to cut start, then immediately skips to cut end. Jarring UX.
+
+**Solution:**
+
+```javascript
+function handleWordClick(word) {
+  const cutRegion = findCutRegionAt(word.start);
+
+  if (cutRegion) {
+    // Seek to end of cut instead of word start
+    audioService.seek(cutRegion.endTime);
+  } else {
+    // Normal seek behavior
+    audioService.seek(word.start);
+  }
+}
+```
+
+**Result:** Clicking word in cut region seeks to first audible word after cut. Predictable behavior.
+
+### Dark Theme + Cut Highlighting
+
+**Problem:** Amber cut highlighting (#ffc107) has low contrast on dark background (#0f172a).
+
+**Solution:**
+
+```css
+/* Dark theme: increase cut region opacity for visibility */
+:root {
+  --cut-region-bg: rgba(255, 193, 7, 0.25); /* 25% vs 20% for light */
+  --cut-region-border: #fbbf24; /* Lighter amber for contrast */
+}
+
+.transcript-word.in-cut-region {
+  background-color: var(--cut-region-bg);
+  border-left: 3px solid var(--cut-region-border);
+}
+```
+
+**Result:** Cut regions remain visible in dark theme. Border provides secondary indicator (not color alone).
+
+## Open Questions for User Testing
+
+1. **Cut visualization:** Do users prefer shaded background, strikethrough, or dimming?
+   - Test with 5-10 users editing real podcast
+   - Measure: time to identify cut regions, error rate (missing cuts)
+
+2. **Preview playback indicator:** Is status text sufficient, or do users need visual timeline marker?
+   - Test: can users tell preview mode is active?
+   - Measure: confusion rate, "how do I hear original?" questions
+
+3. **Search UX:** Do users want match count, or is highlighting alone sufficient?
+   - Test: search for word, observe if users count manually
+   - Measure: requests for "how many matches?" feature
+
+4. **Dark theme colors:** Is amber (#ffc107) the right cut color, or do users expect red?
+   - Test: color association survey ("what does this color mean?")
+   - Measure: semantic clarity (warning vs danger vs neutral)
+
+5. **Getting started copy:** Do users read instructions, or skip directly to file upload?
+   - Test: eye tracking or click stream analysis
+   - Measure: time-to-first-upload, instruction read rate
 
 ## Sources
 
-### FFmpeg.wasm Best Practices
-- [Unleashing FFmpeg Power in the Browser - Medium](https://medium.com/@pardeepkashyap650/unleashing-ffmpeg-power-in-the-browser-a-guide-to-webassembly-video-processing-ec00297aa6ef)
-- [ffmpeg.wasm GitHub Repository](https://github.com/ffmpegwasm/ffmpeg.wasm)
-- [ffmpeg.wasm Official Documentation](https://ffmpegwasm.netlify.app/)
-- [Building a Privacy-First Video to Audio Converter - DEV Community](https://dev.to/xg_fei_e836667012d8841d03/building-a-privacy-first-video-to-audio-converter-with-ffmpegwasm-1kd0)
-- [ffmpeg.audio.wasm - Audio-focused build](https://github.com/JorenSix/ffmpeg.audio.wasm)
+### Cut Visualization Patterns
+- [Transcript Editing: Simplify Video & Audio Edits | CapCut](https://www.capcut.com/tools/video-transcript-editing)
+- [Text-Based Video Editing: How to Edit Video With Text - Easy Guide](https://riverside.com/blog/how-to-edit-video-with-text)
+- [Transcript-Based Video Editing - Edit with Script - VEED.IO](https://www.veed.io/tools/text-based-video-editing/transcript-based-video-editing)
+- [First-Time User Guide for Rev's Transcript Editor | Rev](https://www.rev.com/blog/product-features/rev-transcript-editor-guide)
+- [The underrated UX power of strikethrough text - UI Design](https://www.setproduct.com/blog/strikethrough-text-deserves-more-love-in-ui)
 
-### Progress Indicators and UX Patterns
-- [Progress Trackers and Indicators - UserGuiding](https://userguiding.com/blog/progress-trackers-and-indicators)
-- [12 UI/UX Design Trends That Will Dominate 2026](https://www.index.dev/blog/ui-ux-design-trends)
+### Preview Playback Patterns
+- [Playback Preferences - Audacity Manual](https://manual.audacityteam.org/man/playback_preferences.html)
+- [Skip marked section in preview - Adding Features - Audacity Forum](https://forum.audacityteam.org/t/skip-marked-section-in-preview/64071)
+- [Descript – AI Video & Podcast Editor | Free, Online](https://www.descript.com/)
+- [Best Podcast Editing Software in 2026: Reaper, Descript, and the Tools That Matter](https://www.podcastvideos.com/articles/best-podcast-editing-software-2026/)
 
-### Browser File Download Patterns
-- [URL: createObjectURL() - MDN](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static)
-- [Programmatically downloading files in the browser - LogRocket](https://blog.logrocket.com/programmatically-downloading-files-browser/)
-- [How to save a file - web.dev](https://web.dev/patterns/files/save-a-file)
-- [Blob - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+### Transcript Search & Highlighting
+- [mark.js – JavaScript keyword highlight](https://markjs.io/)
+- [React Speech Highlight v5.5.7 - Text-to-Speech with Word Highlighting](https://react-speech-highlight.vercel.app/)
+- [Real Time Search and Highlight text in JavaScript](https://digitalfox-tutorials.com/tutorial.php?title=Real-Time-Search-and-Highlight-text-in-JavaScript)
+- [Debounce Your Search and Optimize Your React Input Component | by Limani Ratnayake | Medium](https://medium.com/@limaniratnayake/debounce-your-search-and-optimize-your-react-input-component-49a4e62e7e8f)
+- [What is a Good Debounce Time for Search?](https://www.byteplus.com/en/topic/498848)
 
-### Browser Memory and Error Handling
-- [Exceeding the buffering quota - Chrome Developers](https://developer.chrome.com/blog/quotaexceedederror)
-- [Audio + memory usage = headache - HTML5 Game Devs](https://www.html5gamedevs.com/topic/19339-audio-memory-usage-headache/)
-- [OOM causes browser crash in decodeAudioData - Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1066036)
+### Dark Theme Design
+- [One Dark Pro 2026 - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Bayaraa.OneDarkPro2026)
+- [Dark Mode Color Palettes: Complete Guide for 2025 | MyPaletteTool](https://mypalettetool.com/blog/dark-mode-color-palettes)
+- [10 Dark Mode UI Best Practices & Principles for 2026](https://www.designstudiouiux.com/blog/dark-mode-ui-design-best-practices/)
+- [Themes - Audacity Manual](https://manual.audacityteam.org/man/themes.html)
+- [Enabling Dark Mode in Audacity: Working Comfortably at Night - Product London](https://www.productlondon.com/audacity-dark-mode/)
+- [Dark Mode in Pro Tools](https://pcaudiolabs.com/dark-mode-in-pro-tools/)
 
-### Web Audio API and Large File Handling
-- [Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-- [Web Audio API Best Practices - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices)
-- [Loading sound files faster - Clicktorelease](https://www.clicktorelease.com/blog/loading-sounds-faster-using-html5-web-audio-api/)
-- [Phonograph.js: Stream large audio files - Medium](https://medium.com/@Rich_Harris/phonograph-js-tolerable-mobile-web-audio-55286bd5e567)
-- [Web Audio API Performance - Paul Adenot](https://padenot.github.io/web-audio-perf/)
+### Onboarding & Empty States
+- [Onboarding UX Patterns | Empty States | UserOnboard | User Onboarding](https://www.useronboard.com/onboarding-ux-patterns/empty-states/)
+- [Empty state UX examples and design rules that actually work](https://www.eleken.co/blog-posts/empty-state-ux)
+- [Designing Empty States in Complex Applications: 3 Guidelines - NN/G](https://www.nngroup.com/articles/empty-state-interface-design/)
+- [Onboarding UX Patterns: A Short Guide to Onboarding UX](https://userpilot.com/blog/onboarding-ux-patterns/)
+- [The Role Of Empty States In User Onboarding — Smashing Magazine](https://www.smashingmagazine.com/2017/02/user-onboarding-empty-states-mobile-apps/)
 
-### Cancel/Abort UX Issues
-- [Export Audio Mixdown: Cancel - Steinberg Forums](https://forums.steinberg.net/t/export-audio-mixdown-cancel/645001)
-- [Can we get a true ABORT for Export? - Steinberg Forums](https://forums.steinberg.net/t/can-we-please-finally-get-a-true-instantaneous-abort-for-export-audio-mixdown/721393)
-
-### Audio Editor Features and Standards
-- [Best Podcast Editing Software in 2026 - Podcast Videos](https://www.podcastvideos.com/articles/best-podcast-editing-software-2026/)
-- [10 Best Podcast Editing Software - Riverside](https://riverside.com/blog/podcast-editing-software)
-- [Effective Sound File Naming - SoundCy](https://soundcy.com/article/how-to-name-sound-file)
-
-### Non-Destructive Editing Workflows
-- [Destructive vs Non-Destructive Audio Editing - The Podcast Host](https://www.thepodcasthost.com/editing-production/destructive-vs-non-destructive-editing/)
-- [Audio Integrity: Destructive vs Non-Destructive - Journalism University](https://journalism.university/electronic-media/audio-integrity-destructive-non-destructive-editing/)
-- [Ocenaudio Download (2026 Latest)](https://www.filehorse.com/download-ocenaudio/)
-
-### Browser Format Support
-- [MP3 audio format - Can I use](https://caniuse.com/mp3)
-- [Audio format with limited browser support - PowerMapper](https://www.powermapper.com/products/sortsite/rules/bughtmlaudiocodec/)
-- [Detect Supported Audio Formats with JavaScript - David Walsh](https://davidwalsh.name/detect-supported-audio-formats-javascript)
+### CSS Implementation
+- [How to Adjust Background Image Opacity in CSS | DigitalOcean](https://www.digitalocean.com/community/tutorials/how-to-change-a-css-background-images-opacity)
+- [How to Set Background Color Opacity without Affecting Text in CSS? - GeeksforGeeks](https://www.geeksforgeeks.org/css/set-the-opacity-only-to-background-color-not-on-the-text-in-css/)
 
 ---
-*Feature research for: PodEdit v2.0 Browser-based Audio Processing*
-*Researched: 2026-01-26*
+*Feature research for: PodEdit v3.0 UX & Preview Enhancements*
+*Researched: 2026-01-28*

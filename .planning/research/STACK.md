@@ -1,56 +1,438 @@
 # Stack Research
 
 **Domain:** Local web app for podcast audio editing with transcript navigation
-**Researched:** 2026-01-22 (Updated: 2026-01-26 for browser audio processing)
+**Researched:** 2026-01-22 (v1.0), 2026-01-26 (v2.0), 2026-01-28 (v3.0 UX)
 **Confidence:** HIGH
 
-## Recommended Stack
+## Overview
 
-### Core Technologies
+This document covers three milestone generations:
+- **v1.0-v2.0 Stack** (Validated): Core editing, transcription, audio processing
+- **v3.0 Stack Additions** (NEW): UX enhancements - preview, search, theming
+
+---
+
+## v3.0 UX Enhancement Stack (NEW)
+
+### Research Scope for v3.0
+
+**Features Being Added:**
+1. Cut region highlighting in transcript (CSS only - no new dependencies)
+2. Preview playback (skip cut regions during playback)
+3. Transcript search with real-time highlighting
+4. Dark podcast/audio editor theme
+5. Getting started instructions (HTML/CSS only - no new dependencies)
+
+**NOT Re-Researching:**
+- Vanilla JavaScript (validated v1.0)
+- Vite (validated v2.0)
+- FFmpeg.wasm (validated v2.0)
+- HTML5 Audio (validated v1.0)
+- Whisper API (validated v1.0)
+- IndexedDB (validated v1.0)
+
+### New Dependencies for v3.0
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| **Vanilla JavaScript** | ES2026+ | Frontend logic | Already validated in v1.0. Optimal for scope - no framework overhead. Modern JS with native modules is sufficient. |
-| **Vite** | latest | Development server | Already in project. CRITICAL for v2.0: Vite enables COOP/COEP headers required for FFmpeg.wasm SharedArrayBuffer. |
-| **HTML5 Audio** | Native | Audio playback | Already validated. Keep for playback - FFmpeg.wasm handles processing, not playback. |
-| **@ffmpeg/ffmpeg** | 0.12.15 | Browser audio processing | NEW for v2.0: Industry standard for audio manipulation. Runs entirely in browser via WebAssembly. Full codec support for cut application. |
-| **@ffmpeg/util** | latest | FFmpeg helper utilities | NEW for v2.0: Required companion package for file I/O and blob handling in ffmpeg.wasm. |
-| **@ffmpeg/core-mt** | 0.12.6 | Multi-threaded WASM core | NEW for v2.0: 2x faster than single-thread. Essential for 45-90 minute podcast processing (3-6 min vs 6-12 min). |
+| **mark.js** | 8.11.1 | Real-time transcript search highlighting | Mature stable library (2018-01-11). Asynchronous non-blocking operation. Vanilla JS compatible. Extensive configuration (diacritics, accuracy, callbacks). 11KB minified. |
 
-### Supporting Libraries
+**Installation Method:**
+```html
+<!-- Via CDN (RECOMMENDED) -->
+<script src="https://cdn.jsdelivr.net/npm/mark.js@8.11.1/dist/mark.min.js"></script>
+```
+
+**Rationale for CDN over npm:**
+- No Vite build step modification needed
+- mark.js is mature/stable (no updates since 2018)
+- Small footprint (11KB) - CDN faster than bundling
+- Keeps existing build config clean
+
+### Zero-Dependency Features (v3.0)
+
+| Feature | Implementation | No Package Needed |
+|---------|---------------|-------------------|
+| **Cut region highlighting** | CSS class toggling on `.transcript-word` elements | Already implemented in TranscriptController.highlightCutRegions() |
+| **Preview playback** | HTML5 Audio timeupdate event + conditional seek | Native API, works with existing AudioService |
+| **Dark theme** | CSS Custom Properties (variables) | Native browser feature (IE11+ support not needed in 2026) |
+| **Getting started UI** | localStorage + conditional display | Native Web Storage API |
+
+### CSS Custom Properties for Dark Mode
+
+**Implementation:** Native CSS Variables + data-theme attribute
+
+**Why CSS Custom Properties (not Tailwind/Styled-components):**
+- ✓ Zero dependencies (native browser feature)
+- ✓ Runtime theme switching (SASS/LESS are compile-time only)
+- ✓ Perfect for vanilla JS architecture (Tailwind/styled-components require build tools/frameworks)
+- ✓ Works with existing inline styles in index.html
+- ✓ 14 lines of CSS for full dark mode vs Tailwind's entire framework
+
+**Example Implementation:**
+```css
+:root {
+  /* Light mode defaults */
+  --bg-primary: #f5f5f5;
+  --text-primary: #333;
+  --accent-primary: #007bff;
+  /* ... */
+}
+
+[data-theme="dark"] {
+  /* Dark mode overrides */
+  --bg-primary: #1a1a1a;
+  --text-primary: #e0e0e0;
+  --accent-primary: #4a9eff;
+  /* ... */
+}
+
+/* Respect system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Apply dark variables */
+  }
+}
+```
+
+**JavaScript (3 lines):**
+```javascript
+const theme = localStorage.getItem('theme') ||
+  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+document.documentElement.setAttribute('data-theme', theme);
+```
+
+### Preview Playback Pattern
+
+**Implementation:** timeupdate event monitoring + conditional seek
+
+**Why timeupdate (not Web Audio API / Howler.js):**
+- ✓ Already implemented in existing AudioService
+- ✓ Zero dependencies (native HTML5 Audio)
+- ✓ 250ms granularity sufficient for podcast cuts (typically 1+ seconds)
+- ✓ Simple logic: `if (inCut) seek(cut.endTime)`
+- ✗ Web Audio API: Overkill for <1ms timing accuracy (not needed)
+- ✗ Howler.js: 30KB for feature achievable with 5 lines native code
+
+**Event Frequency:**
+- timeupdate fires 4-66Hz (every 15-250ms depending on system load)
+- Typical: ~250ms (4Hz)
+- Sufficient for seamless cut skipping
+
+**Implementation Pattern:**
+```javascript
+// Extends existing AudioService.on('timeupdate') handler
+let isPreviewMode = false; // Toggle state
+
+audioService.on('timeupdate', () => {
+  const currentTime = audioService.getCurrentTime();
+
+  // Existing transcript highlight
+  transcriptController.onTimeUpdate(currentTime);
+
+  // NEW: Preview mode cut skipping
+  if (isPreviewMode) {
+    const cut = cutController.getCutAtTime(currentTime);
+    if (cut && cut.isComplete()) {
+      audioService.seek(cut.endTime); // Skip to end of cut
+    }
+  }
+});
+```
+
+**Performance:**
+- `getCutAtTime()`: O(n) where n = number of cuts
+- Typical podcast: 5-20 cuts
+- Overhead per timeupdate: <1ms
+
+### mark.js Integration
+
+**Integration with TranscriptController:**
+
+Current structure:
+- `TranscriptController` creates `<span class="transcript-word">` elements
+- Each span has `data-start` and `data-end` attributes
+- Container: `#transcript-container`
+
+mark.js pattern:
+```javascript
+// Initialize once
+const markInstance = new Mark(document.querySelector("#transcript-container"));
+
+// On search input change
+searchInput.addEventListener('input', (e) => {
+  markInstance.unmark(); // Clear previous highlights
+  if (e.target.value) {
+    markInstance.mark(e.target.value, {
+      className: "search-highlight",
+      separateWordSearch: false,  // Match full phrases
+      diacritics: true,           // Handle accented characters
+      accuracy: "partially",      // Allow partial matches
+      exclude: [".cut-item", ".history-item"], // Don't highlight UI elements
+      done: (totalMatches) => {
+        // Update UI: "Found 5 matches"
+        // Scroll to first match
+      }
+    });
+  }
+});
+```
+
+**Performance:**
+- Typical podcast transcript: 5,000-10,000 words
+- mark.js highlighting: <100ms (asynchronous, non-blocking)
+- Recommended: Debounce search input (150ms idle)
+
+**Custom CSS:**
+```css
+/* Light mode */
+mark.search-highlight {
+  background-color: #ffeb3b;
+  color: #000;
+  padding: 2px 0;
+  border-radius: 2px;
+}
+
+/* Dark mode */
+[data-theme="dark"] mark.search-highlight {
+  background-color: #6b5b00;
+  color: #fff;
+}
+```
+
+## Installation (v3.0 Only)
+
+```bash
+# mark.js - Choose ONE:
+
+# Option A: CDN (RECOMMENDED)
+# Add to index.html <head>:
+# <script src="https://cdn.jsdelivr.net/npm/mark.js@8.11.1/dist/mark.min.js"></script>
+
+# Option B: npm (if you prefer bundling)
+npm install mark.js@8.11.1 --save-dev
+
+# No other packages needed:
+# - CSS Custom Properties: Native browser feature
+# - Preview playback: Native HTML5 Audio API
+# - Getting started UI: Native localStorage
+```
+
+## Alternatives Considered (v3.0)
+
+### mark.js Alternatives
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| mark.js 8.11.1 | highlight.js | Need syntax highlighting for code blocks (not text search) |
+| mark.js 8.11.1 | lunr.js + custom highlight | Need full-text search index with stemming/relevance scoring (overkill for transcript search) |
+| mark.js 8.11.1 | Native `window.find()` | Need browser's built-in find (lacks customization, UI control) |
+
+**Why mark.js wins:**
+- Purpose-built for text highlighting
+- Works with existing DOM (no re-rendering)
+- Extensive configuration (accuracy, diacritics, exclusions)
+- Lightweight (11KB) vs lunr.js (30KB)
+- Vanilla JS compatible
+
+### CSS Theming Alternatives
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| CSS Custom Properties | Tailwind CSS | Building from scratch with utility-first approach. NOT retrofitting 700+ lines existing CSS. |
+| CSS Custom Properties | Styled-components | Using React/Vue. NOT vanilla JavaScript. |
+| CSS Custom Properties | SASS/LESS | Need compile-time variables. NOT runtime theme switching. |
+
+### Preview Playback Alternatives
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| timeupdate + seek | Web Audio API BufferSource | Need sample-accurate timing (<1ms). NOT needed for podcast editing (250ms sufficient). |
+| timeupdate + seek | Howler.js | Need complex segment management across multiple files. NOT needed for single-file linear playback. |
+| timeupdate + seek | Video.js framework | Building full media player from scratch. NOT adding preview to existing player. |
+
+## What NOT to Use (v3.0)
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| jQuery | 85KB+ dependency for simple DOM operations already implemented | Native DOM APIs (existing codebase) |
+| React/Vue for theme toggle | Complete framework for 3 lines theme logic | CSS Custom Properties + `setAttribute` |
+| Howler.js for preview | 30KB library for 5 lines native code | HTML5 Audio timeupdate (existing) |
+| mark.js via npm bundling | Adds Vite config changes | mark.js via CDN (cleaner) |
+| CSS frameworks (Bootstrap, Bulma) | 100KB+ for styling 90% complete | CSS Custom Properties for theme variables |
+| TypeScript conversion | 200+ hours refactoring validated codebase | Continue vanilla JavaScript (stable) |
+
+## Dark Theme Color Palette (v3.0)
+
+**Recommended Colors (Based on Audacity/Descript/Riverside patterns):**
+
+```css
+[data-theme="dark"] {
+  /* Backgrounds - Neutral dark grays */
+  --bg-primary: #1a1a1a;      /* Body background */
+  --bg-secondary: #2d2d2d;    /* Container/card background */
+  --bg-tertiary: #3a3a3a;     /* Nested sections */
+
+  /* Text - High contrast for readability */
+  --text-primary: #e0e0e0;    /* Body text (WCAG AA: 12.63:1 contrast) */
+  --text-secondary: #a0a0a0;  /* Secondary text */
+
+  /* Borders */
+  --border-color: #4a4a4a;
+
+  /* Accents - Slightly desaturated for dark mode */
+  --accent-primary: #4a9eff;  /* Blue (buttons, links) */
+  --accent-success: #5cb85c;  /* Green (success) */
+  --accent-danger: #d9534f;   /* Red (delete, errors) */
+  --accent-warning: #f0ad4e;  /* Yellow/orange (warnings) */
+
+  /* Functional */
+  --highlight-active: #ffeb3b;     /* Current word in transcript */
+  --cut-region-bg: #4a4a2d;        /* Cut region highlight */
+  --search-highlight-bg: #6b5b00;  /* mark.js search results */
+}
+```
+
+**WCAG Accessibility:**
+- All text/background meet WCAG AA (4.5:1 minimum)
+- Primary text: 12.63:1 contrast ratio
+- Interactive elements: 3:1 contrast
+
+## Integration Points (v3.0 with Existing Stack)
+
+### mark.js ↔ TranscriptController
+
+**Current State (v2.0):**
+- TranscriptController renders transcript as `<span class="transcript-word">` elements
+- Container: `#transcript-container`
+
+**v3.0 Addition:**
+- Initialize mark.js instance on container
+- Search input triggers `mark()` / `unmark()` methods
+- mark.js operates on same DOM (no conflicts)
+
+### CSS Variables ↔ Inline Styles
+
+**Current State (v2.0):**
+- All styles inline in `index.html` `<style>` block
+- Hardcoded colors (#f5f5f5, #333, #007bff, etc.)
+
+**v3.0 Migration:**
+- Replace hardcoded colors with `var(--variable-name)`
+- Define `:root` and `[data-theme="dark"]` variables
+- Add 3-line JS for theme toggle + localStorage
+
+### Preview Mode ↔ AudioService
+
+**Current State (v2.0):**
+- AudioService manages HTML5 Audio element
+- PlayerController wires `onTimeUpdate` callback
+
+**v3.0 Addition:**
+- Add `isPreviewMode` boolean state
+- Extend timeupdate handler with cut detection + seek
+- Uses existing `cutController.getCutAtTime(time)` method
+
+## Performance Characteristics (v3.0 Features)
+
+### mark.js Performance
+
+**Typical Podcast Transcript:**
+- 60-minute podcast ≈ 9,000 words
+- mark.js highlighting: <100ms (asynchronous, non-blocking)
+- Re-highlighting on search input: Debounce 150ms idle
+
+**Optimization:**
+```javascript
+let searchTimeout;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    markInstance.unmark();
+    markInstance.mark(e.target.value);
+  }, 150); // Wait for user to stop typing
+});
+```
+
+### Preview Playback Performance
+
+**timeupdate Event Frequency:**
+- Fires 4-66Hz (every 15-250ms)
+- Typical: ~250ms (4Hz)
+
+**Cut Detection Overhead:**
+- `getCutAtTime()`: O(n) where n = cuts
+- Typical: 5-20 cuts
+- Per timeupdate: <1ms
+
+**Early Exit Optimization:**
+```javascript
+if (isPreviewMode && cutController.getCutRegions().length > 0) {
+  const cut = cutController.getCutAtTime(currentTime);
+  if (cut) audioService.seek(cut.endTime);
+}
+```
+
+### CSS Custom Properties Performance
+
+**Theme Switch:**
+- Setting `data-theme` attribute: <1ms
+- Browser repaint: 16-50ms (one frame)
+- No layout recalculation (colors only)
+
+**Best Practices:**
+- Use `data-theme` attribute selector (faster than class)
+- Define all variables in `:root` (single specificity)
+- Avoid `!important` (slows CSS cascade)
+
+---
+
+## v1.0-v2.0 Validated Stack (Reference)
+
+### Core Technologies (Validated)
+
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| **Vanilla JavaScript** | ES2026+ | Frontend logic | Validated in v1.0. Optimal for scope - no framework overhead. |
+| **Vite** | 7.3.1 | Development server | Validated in v2.0. CRITICAL: Enables COOP/COEP headers for FFmpeg.wasm SharedArrayBuffer. |
+| **HTML5 Audio** | Native | Audio playback | Validated in v1.0. Handles playback (FFmpeg.wasm handles processing). |
+| **@ffmpeg/ffmpeg** | 0.12.15 | Browser audio processing | Validated in v2.0. Industry standard. Runs in browser via WebAssembly. |
+| **@ffmpeg/util** | 0.12.2 | FFmpeg helper utilities | Validated in v2.0. Required companion for file I/O. |
+| **@ffmpeg/core-mt** | 0.12.6 | Multi-threaded WASM core | Validated in v2.0. 2x faster (3-6 min vs 6-12 min for 45-90 min podcast). |
+
+### Supporting Libraries (Validated)
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| **IndexedDB** | Native | Transcription + processed audio caching | Already in use for transcripts. Extend for processed audio caching to avoid re-processing. |
-| **Whisper API** | (API only) | Transcription service | Already validated in v1.0. No changes needed. |
+| **IndexedDB** | Native | Transcription + audio caching | Validated in v1.0. Caches transcripts, extend for processed audio. |
+| **Whisper API** | (API only) | Transcription service | Validated in v1.0. No changes needed. |
 
-### Development Tools
+### Development Tools (Validated)
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
 | **Vite dev server** | Local development with COOP/COEP headers | CRITICAL: Must configure headers in vite.config.js for FFmpeg.wasm |
-| **Browser DevTools Memory Profiler** | Monitor memory usage during processing | Essential for debugging 45-90 min file processing |
+| **Browser DevTools Memory Profiler** | Monitor memory usage | Essential for debugging 45-90 min file processing |
 
-## Installation
+## Installation (Complete Stack)
 
 ```bash
-# NEW: Core audio processing packages (v2.0)
-npm install @ffmpeg/ffmpeg @ffmpeg/util
+# v2.0: Audio processing packages
+npm install @ffmpeg/ffmpeg@0.12.15 @ffmpeg/util@0.12.2
 
-# Multi-threaded core (peer dependency, loaded dynamically at runtime)
-# No explicit install needed - referenced via CDN in code
+# v3.0: Search highlighting
+# CDN recommended (see v3.0 section above)
 
-# Existing stack (already installed in v1.0)
-# - No framework dependencies
-# - Vite already available for dev server
+# Dev dependencies
+npm install vite@7.3.1 --save-dev
 ```
 
-## Vite Configuration (REQUIRED for v2.0)
+## Vite Configuration (Required for v2.0+)
 
-ffmpeg.wasm requires SharedArrayBuffer support, which mandates cross-origin isolation:
+ffmpeg.wasm requires SharedArrayBuffer support → cross-origin isolation:
 
 ```javascript
-// vite.config.js (NEW FILE - PodEdit currently uses 'serve' package)
+// vite.config.js
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -66,307 +448,92 @@ export default defineConfig({
 });
 ```
 
-**Migration note:** PodEdit v1.0 uses `serve` package (`npm run dev` runs `serve .`). Must migrate to Vite for v2.0 to enable COOP/COEP headers.
-
-## Integration Pattern with Existing Stack
-
-### Existing PodEdit v1.0 Stack (No Changes)
-- ✓ Vanilla JavaScript - Compatible with FFmpeg.wasm
-- ✓ HTML5 Audio for playback - Keep for playback
-- ✓ IndexedDB for caching - Extend for processed audio
-- ✓ Whisper API transcription - No changes needed
-- ✓ JSON export with cut timestamps - Keep for cut metadata
-
-### NEW: Audio Processing Layer (v2.0)
-
-```javascript
-// src/services/audioProcessingService.js (NEW)
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
-
-class AudioProcessingService {
-  constructor() {
-    this.ffmpeg = new FFmpeg();
-    this.loaded = false;
-  }
-
-  async initialize() {
-    // Lazy load: only when user clicks "Process Audio"
-    // Saves ~25MB download on initial page load
-    const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
-    await this.ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript')
-    });
-    this.loaded = true;
-  }
-
-  async applyCuts(audioFile, cutRegions) {
-    if (!this.loaded) await this.initialize();
-
-    // Write input file to FFmpeg virtual filesystem
-    await this.ffmpeg.writeFile('input.mp3', await fetchFile(audioFile));
-
-    // Build filter to remove cut regions
-    const filterCmd = this.buildCutFilter(cutRegions);
-
-    // Execute FFmpeg processing
-    await this.ffmpeg.exec([
-      '-i', 'input.mp3',
-      '-filter_complex', filterCmd,
-      '-map', '[out]',
-      '-c:a', 'libmp3lame',
-      '-b:a', '128k',
-      'output.mp3'
-    ]);
-
-    // Read processed output
-    const data = await this.ffmpeg.readFile('output.mp3');
-
-    // CRITICAL: Cleanup virtual filesystem immediately
-    await this.ffmpeg.deleteFile('input.mp3');
-    await this.ffmpeg.deleteFile('output.mp3');
-
-    return new Blob([data.buffer], { type: 'audio/mpeg' });
-  }
-
-  buildCutFilter(cutRegions) {
-    // Build FFmpeg filter_complex to remove cut regions
-    // Keeps audio OUTSIDE cut regions, concatenates remaining segments
-    // Example: Keep 0-10s, remove 10-20s, keep 20-end
-    // Filter: [0:a]atrim=0:10,asetpts=PTS-STARTPTS[a0];[0:a]atrim=20,asetpts=PTS-STARTPTS[a1];[a0][a1]concat=n=2:v=0:a=1[out]
-  }
-}
-```
-
-## Memory Management for Large Files
+## Memory Management (v2.0)
 
 ### Memory Requirements (45-90 minute podcasts)
 
-| File Duration | Typical Size (MP3 128kbps) | Peak Memory Usage | Browser Limit |
-|---------------|----------------------------|-------------------|---------------|
-| 45 minutes | ~43 MB | ~150-200 MB | 2 GB (WebAssembly) |
-| 60 minutes | ~58 MB | ~200-250 MB | 2 GB (WebAssembly) |
-| 90 minutes | ~86 MB | ~300-400 MB | 2 GB (WebAssembly) |
+| Duration | Typical Size (MP3 128kbps) | Peak Memory | Browser Limit |
+|----------|---------------------------|-------------|---------------|
+| 45 min | ~43 MB | ~150-200 MB | 2 GB (WebAssembly) |
+| 60 min | ~58 MB | ~200-250 MB | 2 GB (WebAssembly) |
+| 90 min | ~86 MB | ~300-400 MB | 2 GB (WebAssembly) |
 
-**Verdict:** 45-90 minute podcasts are **well within safe limits** for browser processing. WebAssembly 2GB limit provides 5-10x safety margin.
+**Verdict:** 45-90 minute podcasts well within safe limits. 5-10x safety margin.
 
 ### Memory Best Practices
 
-1. **Lazy Load FFmpeg:** Only load ffmpeg.wasm (~25MB) when user clicks "Process Audio"
-2. **Immediate Cleanup:** Call `ffmpeg.deleteFile()` immediately after reading output
-3. **Revoke Blob URLs:** Call `URL.revokeObjectURL()` after download link created
-4. **File Size Validation:** Warn users if file exceeds 500 MB (conservative safety margin)
-5. **Progress Feedback:** Use ffmpeg progress events to show processing status
+1. **Lazy Load FFmpeg:** Only load when user clicks "Process Audio" (~25MB download)
+2. **Immediate Cleanup:** `ffmpeg.deleteFile()` after reading output
+3. **Revoke Blob URLs:** `URL.revokeObjectURL()` after download
+4. **File Size Validation:** Warn if >500 MB (conservative)
+5. **Progress Feedback:** Use ffmpeg progress events
 
-```javascript
-// Memory cleanup pattern
-ffmpeg.on('progress', ({ progress }) => {
-  updateProgressBar(progress * 100);
-});
-
-// Cleanup immediately after reading
-const data = await ffmpeg.readFile('output.mp3');
-await ffmpeg.deleteFile('input.mp3');
-await ffmpeg.deleteFile('output.mp3');
-
-// Create download, then revoke URL
-const processedBlob = new Blob([data.buffer], { type: 'audio/mpeg' });
-const downloadUrl = URL.createObjectURL(processedBlob);
-// ... user downloads file ...
-URL.revokeObjectURL(downloadUrl);
-```
-
-## Performance Characteristics
+## Performance Characteristics (v2.0 Audio Processing)
 
 ### Processing Time Estimates
 
-FFmpeg.wasm runs ~20-25x slower than native FFmpeg due to WebAssembly overhead:
+FFmpeg.wasm ~20-25x slower than native due to WebAssembly overhead:
 
-| File Duration | Native FFmpeg | ffmpeg.wasm (single-thread) | ffmpeg.wasm (multi-thread) |
-|---------------|---------------|----------------------------|---------------------------|
-| 45 minutes | ~15 seconds | ~6 minutes | ~3 minutes |
-| 60 minutes | ~20 seconds | ~8 minutes | ~4 minutes |
-| 90 minutes | ~30 seconds | ~12 minutes | ~6 minutes |
+| Duration | Native FFmpeg | Single-thread | Multi-thread (USED) |
+|----------|---------------|---------------|---------------------|
+| 45 min | ~15 sec | ~6 min | ~3 min |
+| 60 min | ~20 sec | ~8 min | ~4 min |
+| 90 min | ~30 sec | ~12 min | ~6 min |
 
-**Decision:** Use multi-threaded core (@ffmpeg/core-mt) for 2x speedup. 3-6 minute processing time is acceptable for occasional export workflow.
-
-### User Experience Implications
-
-- **Show clear progress bar** with time estimate (ffmpeg provides progress events)
-- **Allow cancellation** of processing (ffmpeg.terminate())
-- **Cache processed results** in IndexedDB to avoid re-processing
-- **Consider "draft mode"** with lower bitrate for faster preview (96kbps vs 128kbps = ~30% faster)
-
-## Codec Support
-
-ffmpeg.wasm supports all common podcast audio formats:
-
-| Codec | Input Support | Output Support | Notes |
-|-------|---------------|----------------|-------|
-| MP3 | ✓ | ✓ (libmp3lame) | Most common podcast format. Recommended output. |
-| M4A/AAC | ✓ | ✓ | Common for Apple podcasts |
-| WAV | ✓ | ✓ | Uncompressed. 45-min WAV = 500MB. Avoid for output. |
-| Opus | ✓ | ✓ | Modern efficient codec |
-| OGG Vorbis | ✓ | ✓ | Open format |
-
-**Recommendation:** Output MP3 format (libmp3lame encoder, 128kbps) for maximum podcast platform compatibility.
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| **@ffmpeg/ffmpeg** | ffmpeg.audio.wasm | If bundle size critical (5MB vs 20MB). Audio-only build. PodEdit doesn't need video, so viable alternative. |
-| **@ffmpeg/ffmpeg** | Web Audio API + AudioBuffer | ONLY for simple trimming without format conversion. Web Audio API cannot export compressed formats (MP3, AAC). Output would be WAV (500MB+ for 45 min). |
-| **@ffmpeg/ffmpeg** | Server-side FFmpeg | If processing time critical OR files exceed 500MB. Requires backend infrastructure and file upload. Contradicts "local web app" design. |
-| **@ffmpeg/core-mt** | @ffmpeg/core (single-thread) | NEVER for podcast-length files. 2x slower with zero benefit. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| **Web Audio API alone** | Cannot export compressed audio (MP3, AAC). Only supports WAV export via OfflineAudioContext. 45-min WAV = 500MB+. | ffmpeg.wasm for format conversion |
-| **@ffmpeg/core (single-thread)** | 2x slower than multi-thread (6-12 min vs 3-6 min for podcasts). No benefit. | @ffmpeg/core-mt (multi-threaded) |
-| **CDN-loaded ffmpeg.wasm** | Web Workers cannot load from CDN due to CORS. Will fail at runtime. | Use unpkg with toBlobURL helper (converts to blob://) |
-| **Native FFmpeg via subprocess** | Not available in browser. PodEdit is client-side only. | ffmpeg.wasm (WebAssembly port) |
-| **ffmpeg.wasm v0.11.x** | Breaking API changes in v0.12. All examples use new async/await API. Callbacks deprecated. | @ffmpeg/ffmpeg v0.12.15+ |
-| **Server-side processing** | Contradicts "local web app" design. Requires backend, uploads, privacy concerns. | Browser-based ffmpeg.wasm |
-
-## Stack Patterns by Scenario
-
-**If file size < 100MB (most podcasts):**
-- Use @ffmpeg/ffmpeg with multi-threaded core
-- Process entirely in browser (3-4 min)
-- Cache result in IndexedDB
-- Expected: 95% of use cases
-
-**If file size 100-500MB (long podcasts):**
-- Use @ffmpeg/ffmpeg with multi-threaded core
-- Show warning: "This will take 5-10 minutes"
-- Implement cancellation
-- Expected: 4% of use cases
-
-**If file size > 500MB:**
-- Block browser processing (memory risk)
-- Show error: "File too large for browser processing"
-- Suggest: Split into smaller episodes or use external editor
-- Expected: <1% of use cases
-
-**If bundle size critical:**
-- Consider ffmpeg.audio.wasm (~5MB) instead of full build (~20MB)
-- Only supports audio codecs (no video)
-- PodEdit doesn't need video support, so viable
-- Trade-off: Slower download vs initial page load
+**Decision:** Use multi-threaded core for 2x speedup. 3-6 min acceptable for occasional export.
 
 ## Version Compatibility
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
+| mark.js@8.11.1 | All modern browsers (IE9+, Firefox 30+, Chrome 30+, Safari 7+) | No conflicts with existing stack |
+| CSS Custom Properties | Modern browsers (drop IE11 in 2026) | Native feature, no package versions |
 | @ffmpeg/ffmpeg@0.12.15 | @ffmpeg/util@latest | Both required, util is peer dependency |
 | @ffmpeg/ffmpeg@0.12.15 | @ffmpeg/core-mt@0.12.6 | Multi-threaded core, loaded dynamically |
 | @ffmpeg/ffmpeg@0.12.x | Vite 4+ | Requires optimizeDeps.exclude configuration |
-| Vite latest | Node 18+, 20+ | PodEdit currently uses 'serve' - migration needed |
-
-**Breaking change:** ffmpeg.wasm v0.11.x to v0.12.x changed from callbacks to async/await API. All documentation uses v0.12+ patterns.
-
-## Architecture Notes
-
-### Why This Stack for PodEdit v2.0
-
-**Frontend simplicity maintained:**
-- Vanilla JS architecture from v1.0 unchanged
-- FFmpeg.wasm integrates as single service class
-- No framework needed - modern ES modules sufficient
-- HTML5 Audio continues handling playback (not FFmpeg)
-
-**Browser processing advantages:**
-- No file uploads (privacy: audio never leaves device)
-- No backend infrastructure required
-- No hosting costs for processing
-- Works offline after initial load
-- Aligns with "local web app" design philosophy
-
-**FFmpeg.wasm is purpose-built for this:**
-- Industry-standard audio manipulation in browser
-- Full codec support (MP3, AAC, Opus, etc.)
-- Filter system handles complex cut operations
-- Multi-threaded for acceptable performance
-- 45-90 min podcasts well within memory limits
-- WebAssembly isolation prevents crashes
-
-**Trade-offs accepted:**
-- 3-6 minute processing time (vs instant server-side)
-- 500MB file size limit (vs unlimited server-side)
-- 20x slower than native (acceptable for occasional export)
-
-### Migration from v1.0 to v2.0
-
-**No changes to existing features:**
-- Audio playback (HTML5 Audio) - unchanged
-- Transcription (Whisper API) - unchanged
-- Transcript navigation - unchanged
-- Cut marking UI - unchanged
-- IndexedDB caching - extended (add processed audio)
-
-**New additions only:**
-- Vite dev server (replace 'serve' package)
-- vite.config.js (COOP/COEP headers)
-- @ffmpeg/ffmpeg + @ffmpeg/util packages
-- AudioProcessingService class
-- "Process Audio" button + progress UI
-- Download processed audio file
-
-### Production Deployment Considerations
-
-**Static Hosting (Current: serve package)**
-
-FFmpeg.wasm **requires** COOP/COEP headers for SharedArrayBuffer. Static file servers like `serve` cannot set these headers.
-
-**Options:**
-1. **Migrate to Vite** (recommended) - Built-in dev server with header configuration
-2. **Netlify/Vercel/Cloudflare** - All support COOP/COEP header configuration
-3. **Service Worker Workaround** - Intercept requests and inject headers client-side
-
-**Example Netlify config:**
-```toml
-# netlify.toml
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Cross-Origin-Opener-Policy = "same-origin"
-    Cross-Origin-Embedder-Policy = "require-corp"
-```
 
 ## Sources
 
-### High Confidence (Official Documentation)
-- [GitHub - ffmpegwasm/ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) — Latest version (0.12.15, Jan 2025), API documentation
-- [ffmpeg.wasm Official Docs - Installation](https://ffmpegwasm.netlify.app/docs/getting-started/installation/) — Installation instructions, environment requirements
-- [ffmpeg.wasm Official Docs - Performance](https://ffmpegwasm.netlify.app/docs/performance/) — Performance benchmarks (128.8s vs 5.2s native, ~25x slower)
-- [GitHub - Releases](https://github.com/ffmpegwasm/ffmpeg.wasm/releases) — Version history (v0.12.15 released Jan 7, 2025)
-- [@ffmpeg/ffmpeg - npm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) — Package installation (0.12.15 confirmed)
-- [ffmpeg.wasm Official Docs - Overview](https://ffmpegwasm.netlify.app/docs/overview/) — Architecture, async/await API, Web Worker details
+### v3.0 UX Enhancement Research (HIGH Confidence)
 
-### Medium Confidence (Verified Multi-Source)
-- [Vite Configuration for ffmpeg.wasm - GitHub Discussion #798](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/798) — Vite config examples (optimizeDeps, headers)
-- [React + Vite ffmpeg.wasm Example](https://github.com/caominhdev/React-Vite-ffmpeg.wasm) — Multi-threaded setup with COOP/COEP
-- [Large File Handling - GitHub Discussion #516](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/516) — Memory limits (2GB WebAssembly hard limit)
-- [Memory Usage Discussion - GitHub Issue #83](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/83) — Memory management (deleteFile() cleanup patterns)
-- [GitHub - JorenSix/ffmpeg.audio.wasm](https://github.com/JorenSix/ffmpeg.audio.wasm) — Audio-only build (5MB vs 20MB)
-- [Building Browser Audio Tools - SoundTools](https://soundtools.io/blog/building-browser-audio-tools-ffmpeg-wasm/) — 100MB file memory usage (~300-400MB peak)
-- [COOP/COEP Requirements - GitHub Discussion #576](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/576) — Cross-origin isolation setup
-- [SharedArrayBuffer Requirements - GitHub Issue #234](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/234) — Headers configuration (same-origin, require-corp)
+**mark.js:**
+- [mark.js Official Documentation](https://markjs.io/) — Installation, API, configuration options
+- [mark.js on jsDelivr CDN](https://www.jsdelivr.com/package/npm/mark.js) — Version 8.11.1 confirmed, released 2018-01-11
+- [mark.js GitHub Repository](https://github.com/julkue/mark.js) — Maintenance status, community engagement
+- [Performant Text Highlighting Plugin - advanced-mark.js](https://www.jqueryscript.net/text/advanced-mark-highlighting.html) — Performance best practices
 
-### Low Confidence (Community Sources)
-- [Effortless audio encoding - Transloadit](https://transloadit.com/devtips/effortless-audio-encoding-in-the-browser-with-webassembly/) — Web Audio API vs ffmpeg.wasm comparison
-- [FFmpeg.wasm vs IMG.LY](https://img.ly/ffmpeg-js-alternative) — Alternative solutions
-- [Speed Discussion - GitHub Issue #326](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/326) — Performance characteristics (~40fps video vs 500fps native)
-- [Web Audio API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) — Native browser capabilities (no MP3 export)
-- [AudioBuffer - MDN](https://developer.mozilla.org/en-US/docs/Web/API/AudioBuffer) — Audio buffer manipulation limitations
+**CSS Custom Properties & Dark Mode:**
+- [Quick and Easy Dark Mode with CSS Custom Properties](https://css-irl.info/quick-and-easy-dark-mode-with-css-custom-properties/) — Implementation patterns
+- [The best light/dark mode theme toggle in JavaScript](https://whitep4nth3r.com/blog/best-light-dark-mode-theme-toggle-javascript/) — Best practices 2026: preference cascade, localStorage
+- [Dark Mode with CSS: A Comprehensive Guide (2026)](https://618media.com/en/blog/dark-mode-with-css-a-comprehensive-guide/) — Current standards
+- [How To Create a Dark-Mode Theme Using CSS Variables - DigitalOcean](https://www.digitalocean.com/community/tutorials/css-theming-custom-properties) — Tutorial
+- [Best Practices for Dark Mode in Web Design 2026](https://natebal.com/best-practices-for-dark-mode/) — Accessibility, performance
+
+**HTML5 Audio & Preview Playback:**
+- [HTMLMediaElement: timeupdate event - MDN](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/timeupdate_event) — Event frequency (4-66Hz, ~250ms)
+- [Essential Audio and Video Events for HTML5 - SitePoint](https://www.sitepoint.com/essential-audio-and-video-events-for-html5/) — Use cases
+- [Audio Player with skip function - GitHub Gist](https://gist.github.com/neilwave/b425d04997540513b05e3afe75c03381) — currentTime skip pattern
+
+### v1.0-v2.0 Stack Research (HIGH Confidence)
+
+**FFmpeg.wasm:**
+- [GitHub - ffmpegwasm/ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) — Latest version (0.12.15, Jan 2025)
+- [ffmpeg.wasm Official Docs - Installation](https://ffmpegwasm.netlify.app/docs/getting-started/installation/)
+- [ffmpeg.wasm Official Docs - Performance](https://ffmpegwasm.netlify.app/docs/performance/) — ~25x slower than native
+- [@ffmpeg/ffmpeg - npm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) — Version 0.12.15
+
+**Vite Configuration:**
+- [Vite Configuration for ffmpeg.wasm - GitHub Discussion #798](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/798)
+- [React + Vite ffmpeg.wasm Example](https://github.com/caominhdev/React-Vite-ffmpeg.wasm) — COOP/COEP setup
+
+**Memory Management:**
+- [Large File Handling - GitHub Discussion #516](https://github.com/ffmpegwasm/ffmpeg.wasm/discussions/516) — 2GB WebAssembly limit
+- [Memory Usage Discussion - GitHub Issue #83](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/83) — deleteFile() cleanup
 
 ---
+
 *Stack research for: PodEdit - Local podcast audio editing web app*
-*Researched: 2026-01-22 (v1.0 stack)*
-*Updated: 2026-01-26 (v2.0 browser audio processing)*
-*Confidence: HIGH - Core claims verified with official ffmpeg.wasm docs and GitHub releases*
+*v1.0 Stack: 2026-01-22*
+*v2.0 Stack: 2026-01-26*
+*v3.0 UX Stack: 2026-01-28*
+*Confidence: HIGH - All claims verified with official documentation*

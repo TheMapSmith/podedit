@@ -1,734 +1,748 @@
-# Architecture Research: FFmpeg.wasm Integration
+# Architecture Research: v3.0 UX Enhancements Integration
 
-**Domain:** Browser-based podcast audio processing
-**Researched:** 2026-01-26
+**Domain:** Browser-based audio editor (subsequent milestone)
+**Researched:** 2026-01-28
 **Confidence:** HIGH
 
-## Existing Architecture Overview
+## Existing Architecture (v1.0/v2.0)
 
-PodEdit uses vanilla JavaScript with clear controller/service separation:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        UI Layer                              │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ Player   │  │ Transcript│  │ Cut      │                   │
-│  │Controller│  │Controller│  │Controller│                   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
-│       │             │             │                          │
-├───────┴─────────────┴─────────────┴──────────────────────────┤
-│                        Service Layer                         │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │  Audio   │  │Transcribe│  │  Export  │  │  Cache   │    │
-│  │ Service  │  │ Service  │  │ Service  │  │ Service  │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-├─────────────────────────────────────────────────────────────┤
-│                        Data Layer                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ HTML5    │  │IndexedDB │  │CutRegion │                   │
-│  │  Audio   │  │  Cache   │  │  Model   │                   │
-│  └──────────┘  └──────────┘  └──────────┘                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Existing Component Responsibilities
-
-| Component | Responsibility | Implementation |
-|-----------|----------------|----------------|
-| AudioService | Manages HTML5 Audio element for streaming playback | Blob URL creation, event handling, cleanup |
-| CutController | Manages cut region state (mark start/end pairs) | Array of CutRegion models with callbacks |
-| TranscriptController | Renders transcript, handles word navigation | DOM manipulation, timestamp parsing |
-| ExportService | Downloads JSON with cut timestamps | Blob creation for file download |
-| PlayerController | UI state coordination (play/pause, seek) | RequestAnimationFrame updates |
-
-## New Architecture for V2.0
-
-### Extended System Overview
+### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        UI Layer                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ Player   │  │Transcript│  │   Cut    │  │Processing│    │
-│  │Controller│  │Controller│  │Controller│  │Controller│ NEW│
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
-│       │             │             │             │           │
-├───────┴─────────────┴─────────────┴─────────────┴───────────┤
-│                        Service Layer                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │  Audio   │  │Transcribe│  │  Export  │  │Processing│NEW │
-│  │ Service  │  │ Service  │  │ Service  │  │ Service  │    │
-│  └──────────┘  └──────────┘  └────┬─────┘  └────┬─────┘    │
-├───────────────────────────────────┴──────────────┴──────────┤
-│                        Processing Layer                  NEW │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              FFmpeg.wasm Instance                    │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │    │
-│  │  │ Web      │  │ Virtual  │  │WASM Core │          │    │
-│  │  │ Worker   │  │File Sys  │  │(Engine)  │          │    │
-│  │  └──────────┘  └──────────┘  └──────────┘          │    │
-│  └─────────────────────────────────────────────────────┘    │
+│                    UI Layer (index.html)                     │
+│  DOM elements, event bindings, main application logic        │
 ├─────────────────────────────────────────────────────────────┤
-│                        Data Layer                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ HTML5    │  │IndexedDB │  │CutRegion │                   │
-│  │  Audio   │  │  Cache   │  │  Model   │                   │
-│  └──────────┘  └──────────┘  └──────────┘                   │
+│                     Controller Layer                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ Player       │  │ Transcript   │  │ Cut          │      │
+│  │ Controller   │  │ Controller   │  │ Controller   │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                  │                  │              │
+├─────────┴──────────────────┴──────────────────┴──────────────┤
+│                      Service Layer                           │
+│  ┌────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │ Audio      │  │ Transcription│  │ Audio        │        │
+│  │ Service    │  │ Service      │  │ Processing   │        │
+│  └────────────┘  └──────────────┘  └──────────────┘        │
+├─────────────────────────────────────────────────────────────┤
+│                      Data Models                             │
+│  ┌────────────┐                                              │
+│  │ CutRegion  │                                              │
+│  └────────────┘                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### New Component Responsibilities
+### Component Responsibilities
 
-| Component | Responsibility | Implementation |
-|-----------|----------------|----------------|
-| ProcessingService | Orchestrates FFmpeg.wasm for audio processing | FFmpeg instance lifecycle, command construction |
-| ProcessingController | UI for process trigger, progress display | Button state, progress bar updates |
-| ExportService (extended) | Downloads both JSON and processed audio | Add downloadAudio() method alongside downloadJson() |
+| Component | Responsibility | Current State |
+|-----------|----------------|---------------|
+| **AudioService** | HTML5 Audio playback, time tracking, event management | Manages single Audio element with streaming support |
+| **PlayerController** | Play/pause controls, seek slider, time display, 60fps RAF updates | Calls `onTimeUpdate` callback with currentTime |
+| **TranscriptController** | Transcript rendering, word highlighting, click-to-seek, cut region highlighting | Already highlights cut regions via `highlightCutRegions()` |
+| **CutController** | Cut region state management (add/update/delete), two-phase marking | Fires callbacks: `onCutListChanged`, `onPendingCutChanged` |
+| **AudioProcessingService** | FFmpeg.wasm processing, apply cuts to audio | Removes cut regions from exported audio |
+| **ExportService** | JSON download for cut data | Simple file download trigger |
 
-## Data Flow: Cut Marks → FFmpeg → Download
+### Current Data Flow
 
-### Complete Processing Flow
-
+#### Playback Position Updates
 ```
-[User clicks "Process Audio"]
+Audio Element (timeupdate ~4x/sec)
     ↓
-[ProcessingController.onProcessClick()]
-    ↓ (1. Get audio file)
-[AudioService.getOriginalFile()] ────────────┐
-    ↓                                        │
-[ProcessingController]                       │
-    ↓ (2. Get cut list)                     │
-[CutController.getCutRegions()] ─────────┐  │
-    ↓                                     │  │
-[ProcessingController]                    │  │
-    ↓ (3. Orchestrate processing)         │  │
-[ProcessingService.processAudio(file, cuts)] │
-    ↓                                     │  │
-[FFmpeg.wasm Processing Pipeline]         │  │
-    │                                     │  │
-    ├─ (3a) Load FFmpeg.wasm             │  │
-    │   await ffmpeg.load()               │  │
-    │                                     │  │
-    ├─ (3b) Write input to virtual FS    │  │
-    │   await ffmpeg.writeFile()    ◄────┴──┘
-    │                                     │
-    ├─ (3c) Generate filter_complex ◄────┘
-    │   buildFilterCommand(cuts)
-    │
-    ├─ (3d) Execute FFmpeg
-    │   await ffmpeg.exec([...])
-    │   [progress callbacks fire]
-    │
-    ├─ (3e) Read output
-    │   await ffmpeg.readFile()
-    │
-    └─ (3f) Cleanup
-        ffmpeg.terminate()
+PlayerController.updatePlaybackPosition() [60fps RAF]
     ↓
-[ProcessingService returns Blob]
+PlayerController.onTimeUpdate(currentTime) callback
     ↓
-[ProcessingController receives Blob]
-    ↓ (4. Download processed file)
-[ExportService.downloadAudio(blob, filename)]
+TranscriptController.onTimeUpdate(currentTime)
     ↓
-[Browser downloads edited audio file]
+findCurrentWordIndex() → updateHighlight()
 ```
 
-## FFmpeg.wasm Integration Patterns
+#### Cut Region Updates
+```
+User clicks "Mark Start"/"Mark End"
+    ↓
+CutController.markStart() / markEnd()
+    ↓
+CutController.onCutListChanged(cuts) callback
+    ↓
+index.html renders cut list + calls:
+TranscriptController.highlightCutRegions(cuts)
+```
 
-### Pattern 1: Service Initialization (Lazy Loading)
+## V3.0 Feature Integration
 
-**What:** Load FFmpeg.wasm only when needed (on-demand), not at application startup.
+### Feature 1: Cut Region Highlighting in Transcript
 
-**Why:** FFmpeg WASM core is ~31MB (single-thread) or ~32MB (multi-thread). Loading on startup delays initial page load unnecessarily.
+**Status:** Already implemented in v2.0!
 
 **Implementation:**
+- `TranscriptController.highlightCutRegions(cutRegions)` (lines 308-337)
+- Iterates over transcript words, checks overlap with cuts
+- Adds/removes CSS class `in-cut-region` on word elements
+- CSS styles already defined (lines 552-559 in index.html)
+
+**Integration pattern:**
 ```javascript
-class ProcessingService {
-  constructor() {
-    this.ffmpeg = null;
-    this.isLoaded = false;
+// Already wired in index.html (line 1336)
+cutController.onCutListChanged = (cuts) => {
+  renderCutList(cuts);
+  if (transcriptController && transcriptController.transcript) {
+    transcriptController.highlightCutRegions(cuts);
   }
-
-  async ensureLoaded() {
-    if (this.isLoaded) return;
-
-    this.ffmpeg = new FFmpeg();
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-
-    await this.ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-
-    this.isLoaded = true;
-  }
-}
+};
 ```
 
-**Trade-offs:**
-- Pro: Faster initial load for users who only want transcription
-- Pro: Memory efficient until processing needed
-- Con: User waits for FFmpeg download when clicking "Process Audio"
-- Con: Need to handle loading state in UI
+**V3.0 changes needed:** NONE - feature complete. May want to enhance visual styling.
 
-### Pattern 2: Virtual File System Management
+---
 
-**What:** FFmpeg.wasm uses an in-memory virtual filesystem. Write files in, execute commands, read files out.
+### Feature 2: Preview Playback Skipping Cuts
 
-**Why:** WASM has no native access to browser File objects. Must copy data into virtual FS.
+**Status:** NEW - requires implementation
 
-**Implementation:**
+**Architecture approach:**
+
+#### Option A: Timeupdate Listener with Forward Seeking (RECOMMENDED)
+
+Monitor playback position during preview mode and skip forward when entering cut regions.
+
+**Implementation pattern:**
 ```javascript
-async processAudio(audioFile, cutRegions) {
-  await this.ensureLoaded();
-
-  // Write input file to virtual FS
-  const inputName = 'input.mp3'; // Use generic name
-  await this.ffmpeg.writeFile(inputName, await fetchFile(audioFile));
-
-  // Execute command (operates on virtual FS paths)
-  const filterCmd = this.buildFilterCommand(cutRegions);
-  await this.ffmpeg.exec(['-i', inputName, ...filterCmd, 'output.mp3']);
-
-  // Read output from virtual FS
-  const data = await this.ffmpeg.readFile('output.mp3');
-
-  // Cleanup virtual FS
-  await this.ffmpeg.deleteFile(inputName);
-  await this.ffmpeg.deleteFile('output.mp3');
-
-  return new Blob([data.buffer], { type: 'audio/mpeg' });
-}
-```
-
-**Trade-offs:**
-- Pro: Isolated filesystem prevents conflicts
-- Pro: Automatic cleanup prevents memory leaks
-- Con: Entire file loaded into memory (limits size)
-- Con: File copy overhead (time and memory)
-
-### Pattern 3: Filter Complex Command Construction
-
-**What:** Build FFmpeg filter_complex commands to remove cut regions by concatenating kept segments.
-
-**Why:** Can't directly "delete" regions from audio. Must extract kept segments and concatenate them.
-
-**Approach:** For each cut region, generate `atrim` + `asetpts` filters to extract kept segments, then `concat` to join them.
-
-**Implementation:**
-```javascript
-buildFilterCommand(cutRegions) {
-  // Sort cuts by start time
-  const sorted = [...cutRegions].sort((a, b) => a.startTime - b.startTime);
-
-  // Build array of KEPT segments (inverse of cuts)
-  const keepSegments = [];
-  let currentTime = 0;
-
-  for (const cut of sorted) {
-    if (currentTime < cut.startTime) {
-      keepSegments.push({ start: currentTime, end: cut.startTime });
-    }
-    currentTime = cut.endTime;
+// In AudioService or new PreviewService
+class PreviewService {
+  constructor(audioService, cutController) {
+    this.audioService = audioService;
+    this.cutController = cutController;
+    this.previewMode = false;
+    this.skipHandler = null;
   }
 
-  // Add final segment after last cut (if any)
-  // Note: Need audio duration - get from AudioService
-  const duration = this.audioDuration; // Must be injected
-  if (currentTime < duration) {
-    keepSegments.push({ start: currentTime, end: duration });
-  }
+  enablePreview() {
+    this.previewMode = true;
 
-  // Build filter_complex command
-  // Example: [0:a]atrim=0:10,asetpts=PTS-STARTPTS[a0];
-  //          [0:a]atrim=15:30,asetpts=PTS-STARTPTS[a1];
-  //          [a0][a1]concat=v=0:a=1[out]
+    // Register timeupdate listener for skip logic
+    this.skipHandler = () => {
+      if (!this.previewMode) return;
 
-  if (keepSegments.length === 0) {
-    throw new Error('No audio would remain after cuts');
-  }
+      const currentTime = this.audioService.getCurrentTime();
+      const cutAtTime = this.cutController.getCutAtTime(currentTime);
 
-  if (keepSegments.length === 1) {
-    // Single segment - simple trim
-    const seg = keepSegments[0];
-    return [
-      '-af',
-      `atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS`
-    ];
-  }
-
-  // Multiple segments - need concat
-  const filters = [];
-  const labels = [];
-
-  keepSegments.forEach((seg, i) => {
-    const label = `a${i}`;
-    filters.push(`[0:a]atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS[${label}]`);
-    labels.push(`[${label}]`);
-  });
-
-  // Concat all segments
-  filters.push(`${labels.join('')}concat=v=0:a=${keepSegments.length}[out]`);
-
-  return [
-    '-filter_complex',
-    filters.join(';'),
-    '-map', '[out]'
-  ];
-}
-```
-
-**Trade-offs:**
-- Pro: Precise timestamp control
-- Pro: Maintains audio quality (no re-encoding if using -c copy, but filter requires re-encode)
-- Con: Complex command construction
-- Con: Requires audio duration from AudioService
-
-### Pattern 4: Progress Callbacks
-
-**What:** FFmpeg.wasm fires progress events during processing. Wire to UI progress bar.
-
-**Why:** Long files (45-90 min podcasts) may take minutes to process. User needs feedback.
-
-**Limitations:** Progress events are experimental and may not fire for all operations. Progress ratio is only accurate when input/output durations match (which they won't for cuts).
-
-**Implementation:**
-```javascript
-class ProcessingService {
-  async processAudio(audioFile, cutRegions, onProgress) {
-    await this.ensureLoaded();
-
-    // Register progress callback
-    this.ffmpeg.on('progress', ({ progress, time }) => {
-      // progress is 0-1 ratio (unreliable for cuts)
-      // time is current processing timestamp in microseconds
-      if (onProgress) {
-        // Convert time to seconds
-        const seconds = time / 1000000;
-        onProgress({ seconds, progress });
+      if (cutAtTime) {
+        // Skip to end of cut region
+        this.audioService.seek(cutAtTime.endTime);
       }
-    });
-
-    // ... processing ...
-
-    // Cleanup callback
-    this.ffmpeg.off('progress');
-  }
-}
-```
-
-**Alternative approach:** Log callback for more reliable feedback
-```javascript
-this.ffmpeg.on('log', ({ message }) => {
-  // Parse FFmpeg output for "time=" to extract progress
-  // Example: "frame= 1234 fps=56 time=00:01:23.45"
-  const match = message.match(/time=(\d{2}):(\d{2}):(\d{2})/);
-  if (match && onProgress) {
-    const [_, hours, mins, secs] = match;
-    const totalSeconds = parseInt(hours) * 3600 +
-                         parseInt(mins) * 60 +
-                         parseInt(secs);
-    onProgress({ seconds: totalSeconds });
-  }
-});
-```
-
-**Trade-offs:**
-- Pro: User sees progress during long operations
-- Con: Progress events are experimental and unreliable
-- Con: Log parsing is fragile and FFmpeg-version dependent
-
-### Pattern 5: Memory Management & Cleanup
-
-**What:** FFmpeg.wasm loads entire files into WASM memory. Must cleanup aggressively to prevent crashes.
-
-**Why:** Browsers limit WASM memory (typically 2-4GB). 90-minute podcasts can be 100-200MB uncompressed.
-
-**Critical cleanup points:**
-1. After readFile (delete virtual FS files)
-2. After processing complete (terminate FFmpeg instance)
-3. On error (cleanup in finally block)
-
-**Implementation:**
-```javascript
-class ProcessingService {
-  async processAudio(audioFile, cutRegions, onProgress) {
-    try {
-      await this.ensureLoaded();
-
-      const inputName = 'input.mp3';
-      await this.ffmpeg.writeFile(inputName, await fetchFile(audioFile));
-
-      // ... processing ...
-
-      const data = await this.ffmpeg.readFile('output.mp3');
-
-      // Immediate cleanup of virtual FS
-      await this.ffmpeg.deleteFile(inputName);
-      await this.ffmpeg.deleteFile('output.mp3');
-
-      return new Blob([data.buffer], { type: this.getOutputMimeType(audioFile) });
-
-    } catch (error) {
-      console.error('Processing failed:', error);
-      throw new Error(`Audio processing failed: ${error.message}`);
-
-    } finally {
-      // Always terminate FFmpeg instance to free memory
-      if (this.ffmpeg) {
-        this.ffmpeg.terminate();
-        this.isLoaded = false;
-        this.ffmpeg = null;
-      }
-    }
-  }
-}
-```
-
-**Trade-offs:**
-- Pro: Prevents memory leaks
-- Pro: Allows multiple processing operations in one session
-- Con: Must reload FFmpeg for next operation (adds ~2-3s overhead)
-- Con: Aggressive cleanup means losing state
-
-**Alternative: Reuse instance**
-For batch processing (multiple files), don't terminate between operations:
-```javascript
-// Keep instance alive, only cleanup files
-await this.ffmpeg.deleteFile(inputName);
-await this.ffmpeg.deleteFile('output.mp3');
-```
-
-But for PodEdit's one-file workflow, aggressive cleanup is safer.
-
-## Integration Points with Existing Services
-
-### 1. AudioService → ProcessingService
-
-**What ProcessingService needs:** Original audio File object
-
-**Current state:** AudioService only exposes HTML5 Audio element, not original File
-
-**Required change:** AudioService must store and expose the original File object
-
-**Implementation:**
-```javascript
-// audioService.js modification
-class AudioService {
-  constructor() {
-    this.audio = new Audio();
-    this.originalFile = null; // NEW
-  }
-
-  async loadFile(file) {
-    this.originalFile = file; // NEW - store reference
-
-    const url = URL.createObjectURL(file);
-    this.audio.src = url;
-    // ... rest of existing code
-  }
-
-  getOriginalFile() {  // NEW method
-    return this.originalFile;
-  }
-}
-```
-
-### 2. CutController → ProcessingService
-
-**What ProcessingService needs:** Array of cut regions with start/end times
-
-**Current state:** CutController already provides `getCutRegions()` returning CutRegion[]
-
-**Required change:** None - interface already exists
-
-**Usage:**
-```javascript
-// processingController.js
-const cuts = this.cutController.getCutRegions();
-const processedBlob = await this.processingService.processAudio(
-  this.audioService.getOriginalFile(),
-  cuts,
-  (progress) => this.updateProgressBar(progress)
-);
-```
-
-### 3. ProcessingService → ExportService
-
-**What ExportService needs:** Processed audio Blob and filename
-
-**Current state:** ExportService only handles JSON downloads
-
-**Required change:** Add downloadAudio() method
-
-**Implementation:**
-```javascript
-// exportService.js extension
-class ExportService {
-  // ... existing downloadJson method ...
-
-  /**
-   * Download audio blob as a file
-   * @param {Blob} audioBlob - Processed audio data
-   * @param {string} originalFilename - Original audio filename
-   */
-  downloadAudio(audioBlob, originalFilename) {
-    // Derive output filename: "podcast.mp3" -> "podcast-edited.mp3"
-    const baseName = originalFilename.replace(/\.[^.]+$/, '');
-    const extension = originalFilename.match(/\.[^.]+$/)?.[0] || '.mp3';
-    const outputFilename = `${baseName}-edited${extension}`;
-
-    // Create object URL and trigger download
-    const url = URL.createObjectURL(audioBlob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = outputFilename;
-    anchor.style.display = 'none';
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    // Revoke URL after download to prevent memory leak
-    URL.revokeObjectURL(url);
-  }
-}
-```
-
-### 4. AudioService Duration → ProcessingService
-
-**What ProcessingService needs:** Total audio duration to calculate final segment
-
-**Current state:** AudioService has getDuration() method
-
-**Required change:** None, but ProcessingService must call it
-
-**Usage:**
-```javascript
-// processingService.js
-buildFilterCommand(cutRegions) {
-  // Need duration to calculate final kept segment
-  // This must be passed in from controller
-  const duration = this.audioDuration;
-  // ... rest of command building
-}
-```
-
-**Better pattern:** Inject duration when processing starts
-```javascript
-async processAudio(audioFile, cutRegions, duration, onProgress) {
-  this.audioDuration = duration; // Store for buildFilterCommand
-  // ...
-}
-```
-
-## Component Dependency Graph
-
-```
-ProcessingController (NEW)
-    │
-    ├─→ AudioService.getOriginalFile()
-    ├─→ AudioService.getDuration()
-    ├─→ CutController.getCutRegions()
-    ├─→ ProcessingService.processAudio() (NEW)
-    └─→ ExportService.downloadAudio() (NEW)
-
-ProcessingService (NEW)
-    │
-    ├─→ FFmpeg.wasm (external library)
-    ├─→ @ffmpeg/util.fetchFile() (external library)
-    └─→ @ffmpeg/util.toBlobURL() (external library)
-
-AudioService (MODIFIED)
-    + getOriginalFile() method
-    + originalFile storage
-
-ExportService (MODIFIED)
-    + downloadAudio() method
-```
-
-## Suggested Build Order
-
-Based on dependencies and risk, build in this order:
-
-### Phase 1: Service Foundation (Low Risk)
-1. **Add ProcessingService skeleton** - Class structure, no FFmpeg yet
-   - Constructor
-   - processAudio() stub that returns dummy Blob
-   - buildFilterCommand() stub
-2. **Extend AudioService** - Add getOriginalFile() method
-3. **Extend ExportService** - Add downloadAudio() method
-4. **Test service integration** - Wire services together without FFmpeg
-
-### Phase 2: FFmpeg Integration (Medium Risk)
-5. **Add FFmpeg.wasm library** - Install @ffmpeg/ffmpeg and @ffmpeg/util
-6. **Implement FFmpeg loading** - ensureLoaded() method
-7. **Implement basic processing** - Write file, exec simple command, read output
-8. **Test with simple audio file** - No cuts, just load and re-encode
-
-### Phase 3: Cut Logic (High Risk - Complex)
-9. **Implement buildFilterCommand()** - Single cut first
-10. **Test single cut removal** - Verify timestamps correct
-11. **Extend to multiple cuts** - Array of cuts with concat
-12. **Test edge cases** - No cuts, all cuts, overlapping cuts
-
-### Phase 4: UI & Polish (Low Risk)
-13. **Add ProcessingController** - Button to trigger processing
-14. **Add progress bar** - Wire progress callbacks to UI
-15. **Add error handling** - Display errors to user
-16. **Add file size warnings** - Warn for files >100MB
-
-### Phase 5: Memory Management (Medium Risk)
-17. **Add cleanup on success** - Delete files, terminate instance
-18. **Add cleanup on error** - Finally blocks
-19. **Test memory usage** - Multiple process operations in one session
-20. **Add SharedArrayBuffer detection** - Warn if browser doesn't support
-
-## Memory Lifecycle
-
-```
-[User uploads audio file]
-    │
-    ├─→ AudioService stores File reference (~100MB MP3)
-    │   [Memory: ~100MB for File object]
-    │
-[User clicks "Process Audio"]
-    │
-    ├─→ ProcessingService.ensureLoaded()
-    │   ├─ Download FFmpeg WASM (~31MB)
-    │   ├─- Initialize FFmpeg instance
-    │   [Memory: +31MB for WASM + overhead]
-    │
-    ├─→ ffmpeg.writeFile(input)
-    │   ├─ Copy File to virtual FS
-    │   [Memory: +100MB copy in WASM memory]
-    │
-    ├─→ ffmpeg.exec(filter_complex)
-    │   ├─ Decode audio to PCM
-    │   ├─ Process segments
-    │   ├─ Encode output
-    │   [Memory: Peak ~300-400MB during processing]
-    │   [         - Input: 100MB]
-    │   [         - Decoded PCM: ~200MB for 90min]
-    │   [         - Output buffer: ~100MB]
-    │
-    ├─→ ffmpeg.readFile(output)
-    │   ├─ Copy output to JavaScript
-    │   [Memory: +100MB for output Blob]
-    │
-    ├─→ Cleanup: deleteFile(input, output)
-    │   [Memory: -200MB (virtual FS files cleared)]
-    │
-    └─→ Cleanup: ffmpeg.terminate()
-        [Memory: -31MB (WASM freed)]
-
-[User downloads audio]
-    │
-    └─→ ExportService.downloadAudio(blob)
-        ├─ Create object URL (reference, no copy)
-        ├─ Trigger download
-        └─ Revoke URL
-        [Memory: Original ~100MB input still in AudioService]
-        [Memory: ~100MB output Blob until download complete]
-```
-
-**Peak memory usage:** ~500-600MB
-- Original file in AudioService: 100MB
-- FFmpeg WASM: 31MB
-- Virtual FS copy: 100MB
-- Decoded PCM: 200MB
-- Output Blob: 100MB
-
-**After cleanup:** ~200MB
-- Original file: 100MB (kept for replay)
-- Output Blob: 100MB (until download complete, then GC'd)
-
-## Browser Compatibility Requirements
-
-FFmpeg.wasm requires:
-- **WebAssembly support** - Chrome 57+, Firefox 52+, Safari 11+, Edge 79+ (95%+ coverage)
-- **SharedArrayBuffer** - Chrome 89+, Firefox 79+, Safari 15.2+, Edge 89+ (95%+ coverage as of 2024)
-- **Cross-Origin Isolation** - Requires headers:
-  - `Cross-Origin-Embedder-Policy: require-corp`
-  - `Cross-Origin-Opener-Policy: same-origin`
-
-**For localhost development:** These headers are automatically provided by most dev servers.
-
-**Detection pattern:**
-```javascript
-function supportsFFmpeg() {
-  if (typeof WebAssembly === 'undefined') {
-    return { supported: false, reason: 'WebAssembly not supported' };
-  }
-
-  if (typeof SharedArrayBuffer === 'undefined') {
-    return {
-      supported: false,
-      reason: 'SharedArrayBuffer not available (cross-origin isolation required)'
     };
+
+    this.audioService.on('timeupdate', this.skipHandler);
   }
 
-  return { supported: true };
+  disablePreview() {
+    this.previewMode = false;
+    if (this.skipHandler) {
+      this.audioService.off('timeupdate', this.skipHandler);
+    }
+  }
 }
 ```
 
-## Anti-Patterns
+**Trade-offs:**
+- PRO: Simple, leverages existing AudioService event system
+- PRO: No modification to core playback logic
+- PRO: Can toggle on/off easily
+- CON: Slight delay (timeupdate fires ~4x/sec) before skip triggers
+- CON: User will briefly hear start of cut region (~0.25s max)
 
-### Anti-Pattern 1: Loading FFmpeg on Startup
+**Validation:** Checked with [MDN timeupdate documentation](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Audio_and_video_delivery/buffering_seeking_time_ranges) and [W3Schools timeupdate event reference](https://www.w3schools.com/tags/av_event_timeupdate.asp).
 
-**What people do:** Load FFmpeg.wasm in application initialization
-**Why it's wrong:** Delays initial page load by 2-3 seconds for all users, even those who only want transcription
-**Do this instead:** Lazy load FFmpeg when user clicks "Process Audio" button
+#### Option B: Requesting Animation Frame Polling
 
-### Anti-Pattern 2: Forgetting Virtual FS Cleanup
+Poll currentTime at 60fps (same as PlayerController) for immediate skip response.
 
-**What people do:** Read output file and return, leaving files in virtual FS
-**Why it's wrong:** Memory leak - virtual FS files persist in WASM memory until explicitly deleted
-**Do this instead:** Always delete virtual FS files after reading, use try/finally blocks
+**Trade-offs:**
+- PRO: Faster detection (~16ms vs ~250ms)
+- PRO: More seamless skip experience
+- CON: More complex (requires RAF management)
+- CON: Duplicates polling logic already in PlayerController
 
-### Anti-Pattern 3: Building Filter Commands with String Concatenation
+**Recommendation:** Option A (timeupdate listener) is sufficient for preview playback. 250ms delay is acceptable for preview purposes, and implementation is simpler.
 
-**What people do:** Build `-filter_complex` string by concatenating parts
-**Why it's wrong:** Easy to introduce syntax errors, hard to debug, shell escaping issues
-**Do this instead:** Build filter as array of parts, join with semicolons, pass as single argument
+#### Integration Points
 
-### Anti-Pattern 4: Using -c copy with filter_complex
+**New component:** `PreviewService` or add methods to `AudioService`
+- `enablePreview()` - attach skip listener
+- `disablePreview()` - detach skip listener
+- Depends on: `AudioService`, `CutController`
 
-**What people do:** Try to use `-c copy` (stream copy) with `-filter_complex`
-**Why it's wrong:** Filters require decoding/encoding - stream copy skips that, command fails
-**Do this instead:** Let FFmpeg choose encoder, or explicitly specify `-c:a libmp3lame` for MP3
+**UI changes (index.html):**
+- Add "Preview Mode" toggle button in player controls
+- Show visual indicator when preview mode active
+- Wire toggle to `PreviewService.enablePreview()` / `disablePreview()`
 
-### Anti-Pattern 5: Assuming Progress Events Are Accurate
+**CutController integration:**
+- Already provides `getCutAtTime(time)` method (line 146)
+- No changes needed
 
-**What people do:** Use progress events to show exact percentage completion
-**Why it's wrong:** Progress events are experimental, ratios are inaccurate when output duration differs from input
-**Do this instead:** Show indeterminate progress spinner, or parse log output for time values (fragile)
+---
+
+### Feature 3: Transcript Search with mark.js
+
+**Status:** NEW - requires implementation
+
+**Library:** mark.js - [Official site](https://markjs.io/) | [GitHub](https://github.com/julkue/mark.js)
+
+**Architecture approach:**
+
+#### Component: SearchController
+
+New controller for managing search state and mark.js instance.
+
+**Implementation pattern:**
+```javascript
+// New: src/controllers/searchController.js
+import Mark from 'mark.js'; // or via CDN
+
+class SearchController {
+  constructor(transcriptContainer, elements) {
+    this.transcriptContainer = transcriptContainer;
+    this.elements = elements; // { searchInput, searchResults, clearBtn }
+    this.markInstance = new Mark(this.transcriptContainer);
+    this.currentQuery = '';
+
+    this.setupEventListeners();
+  }
+
+  setupEventListeners() {
+    // Real-time search on input
+    this.elements.searchInput.addEventListener('input', (e) => {
+      this.search(e.target.value);
+    });
+
+    // Clear search
+    this.elements.clearBtn.addEventListener('click', () => {
+      this.clear();
+    });
+  }
+
+  search(query) {
+    if (!query || query.trim().length === 0) {
+      this.clear();
+      return;
+    }
+
+    this.currentQuery = query;
+
+    // Clear previous marks
+    this.markInstance.unmark();
+
+    // Apply new marks
+    this.markInstance.mark(query, {
+      separateWordSearch: true, // Match individual words
+      accuracy: 'partially',     // Partial matching
+      className: 'search-highlight',
+      done: (count) => {
+        this.updateResultsCount(count);
+      }
+    });
+  }
+
+  clear() {
+    this.markInstance.unmark();
+    this.currentQuery = '';
+    this.elements.searchInput.value = '';
+    this.updateResultsCount(0);
+  }
+
+  updateResultsCount(count) {
+    if (count === 0) {
+      this.elements.searchResults.textContent = 'No matches';
+    } else {
+      this.elements.searchResults.textContent = `${count} match${count > 1 ? 'es' : ''}`;
+    }
+  }
+}
+```
+
+**Integration with TranscriptController:**
+
+**Option A: Separate instances (RECOMMENDED)**
+- SearchController manages mark.js instance independently
+- TranscriptController handles word highlighting for playback
+- Both operate on same transcript container DOM
+- No coordination needed (CSS classes don't conflict)
+
+**Option B: TranscriptController owns SearchController**
+- TranscriptController instantiates SearchController
+- Could coordinate clearing search when transcript changes
+
+**Recommendation:** Option A. Keep controllers independent, both manipulate same DOM.
+
+#### Integration Points
+
+**New file:** `src/controllers/searchController.js`
+
+**Dependencies:**
+- mark.js library (add via CDN or npm)
+- DOM elements: transcript container, search input, results display
+
+**UI changes (index.html):**
+- Add search bar in transcription section (near "Generate Transcript" button)
+- Add search results count display
+- Add "Clear" button
+- CSS for `.search-highlight` class (yellow background, distinct from `.active`)
+
+**CSS styling:**
+```css
+.search-highlight {
+  background: #ffeb3b; /* Bright yellow for search hits */
+  font-weight: 600;
+}
+
+/* Higher specificity for search + active overlap */
+.transcript-word.active.search-highlight {
+  background: linear-gradient(to bottom, #ffd700 50%, #ffeb3b 50%);
+}
+```
+
+**Validation:** mark.js is widely used and actively maintained. [Official documentation](https://markjs.io/) confirms vanilla JS support with no jQuery dependency required.
+
+---
+
+### Feature 4: Dark Theme
+
+**Status:** NEW - requires CSS implementation
+
+**Architecture approach:**
+
+#### Option A: CSS Variables with Class Toggle (RECOMMENDED)
+
+Define color scheme in CSS variables, toggle via `.dark-theme` class on `<body>`.
+
+**Implementation pattern:**
+```css
+/* Define color tokens */
+:root {
+  /* Light theme (default) */
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9fa;
+  --text-primary: #333333;
+  --text-secondary: #6c757d;
+  --border-color: #dee2e6;
+  --accent-primary: #007bff;
+  --accent-secondary: #28a745;
+  --highlight-color: #ffd700;
+  --cut-region-bg: #fff3cd;
+  --cut-region-border: #ffc107;
+}
+
+/* Dark theme overrides */
+body.dark-theme {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #242424;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --border-color: #404040;
+  --accent-primary: #4a9eff;
+  --accent-secondary: #4ade80;
+  --highlight-color: #fbbf24;
+  --cut-region-bg: #3a3520;
+  --cut-region-border: #fbbf24;
+}
+
+/* Apply variables throughout */
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.transcript-word.active {
+  background: var(--highlight-color);
+}
+```
+
+**Toggle mechanism:**
+```javascript
+// In index.html or new themeController.js
+function toggleTheme() {
+  document.body.classList.toggle('dark-theme');
+
+  // Persist preference
+  const isDark = document.body.classList.contains('dark-theme');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+// Restore on load
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+  }
+}
+
+// Run on page load
+initTheme();
+```
+
+**Trade-offs:**
+- PRO: Simple, no new components needed
+- PRO: Instant theme switch (single class toggle)
+- PRO: Easy to extend with more themes later
+- CON: Requires updating all hardcoded colors to use variables
+
+#### Option B: Separate Stylesheets
+
+Load `styles-light.css` or `styles-dark.css` based on theme preference.
+
+**Trade-offs:**
+- PRO: No need to refactor existing CSS
+- CON: Duplicate CSS maintenance
+- CON: Flash of unstyled content on theme switch
+- CON: Larger bundle size
+
+**Recommendation:** Option A (CSS variables). Best practice for 2026 per [design.dev guide](https://design.dev/guides/dark-mode-css/) and [natebal.com best practices](https://natebal.com/best-practices-for-dark-mode/).
+
+#### Integration Points
+
+**No new components needed** - pure CSS + minimal JS
+
+**UI changes (index.html):**
+- Add theme toggle button in header/nav area
+- Add moon/sun icon (optional, can use text "Dark Mode" / "Light Mode")
+- Wire toggle button to `toggleTheme()` function
+
+**CSS refactoring:**
+- Extract all hardcoded colors to CSS variables
+- Define light and dark color schemes
+- Test all UI states (active, hover, disabled, error)
+
+**Accessibility consideration:**
+- Support `prefers-color-scheme` media query for system preference
+- Combine with manual toggle for user override
+
+```css
+/* Respect system preference by default */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Apply dark theme variables */
+  }
+}
+```
+
+**Validation:** CSS custom properties and `prefers-color-scheme` are well-supported in 2026. [CSS-Tricks guide](https://css-tricks.com/a-complete-guide-to-dark-mode-on-the-web/) and [618media guide](https://618media.com/en/blog/dark-mode-with-css-a-comprehensive-guide/) confirm this is standard approach.
+
+---
+
+### Feature 5: Intro Text / Getting Started
+
+**Status:** NEW - requires HTML content
+
+**Architecture approach:**
+
+#### Static HTML Block (RECOMMENDED)
+
+Add collapsible section at top of page with getting started instructions.
+
+**Implementation pattern:**
+```html
+<!-- In index.html, after <h1>PodEdit</h1> -->
+<div id="intro-section" class="intro-section">
+  <div class="intro-header">
+    <h2>Getting Started</h2>
+    <button id="toggle-intro-btn" class="toggle-intro-btn">Hide</button>
+  </div>
+  <div id="intro-content" class="intro-content">
+    <ol class="intro-steps">
+      <li><strong>Upload audio:</strong> Select an MP3, WAV, or M4A file</li>
+      <li><strong>Generate transcript:</strong> Transcribe audio with Whisper API</li>
+      <li><strong>Mark cuts:</strong> Click words to jump, then mark start/end of sections to remove</li>
+      <li><strong>Export:</strong> Download edited audio with cuts applied</li>
+    </ol>
+    <p class="intro-note">
+      <strong>Note:</strong> All processing happens in your browser. Files never leave your device.
+    </p>
+  </div>
+</div>
+```
+
+**Toggle logic:**
+```javascript
+// Collapsible intro section
+const introSection = document.getElementById('intro-section');
+const introContent = document.getElementById('intro-content');
+const toggleIntroBtn = document.getElementById('toggle-intro-btn');
+
+toggleIntroBtn.addEventListener('click', () => {
+  const isHidden = introContent.style.display === 'none';
+  introContent.style.display = isHidden ? 'block' : 'none';
+  toggleIntroBtn.textContent = isHidden ? 'Hide' : 'Show';
+
+  // Remember preference
+  localStorage.setItem('intro-visible', isHidden ? 'true' : 'false');
+});
+
+// Auto-hide after first use
+if (localStorage.getItem('intro-visible') === 'false') {
+  introContent.style.display = 'none';
+  toggleIntroBtn.textContent = 'Show';
+}
+```
+
+**Trade-offs:**
+- PRO: Simplest implementation, no new components
+- PRO: Always available for reference
+- CON: Takes up vertical space (mitigated by collapse)
+
+**Alternative:** Modal dialog that appears once per browser session. More complex, not needed for v3.0.
+
+**Recommendation:** Static collapsible HTML block.
+
+#### Integration Points
+
+**No new components needed** - pure HTML + CSS + minimal JS
+
+**UI changes (index.html):**
+- Add intro section after `<h1>`
+- Add CSS styling for `.intro-section`, `.intro-steps`, `.intro-note`
+- Add toggle button event listener
+- Store collapse state in localStorage
+
+---
+
+## V3.0 Architecture Summary
+
+### New Components
+
+| Component | File | Purpose | Dependencies |
+|-----------|------|---------|--------------|
+| **PreviewService** | `src/services/previewService.js` | Preview mode with cut skipping | AudioService, CutController |
+| **SearchController** | `src/controllers/searchController.js` | Transcript search with mark.js | mark.js, DOM elements |
+
+### Modified Components
+
+| Component | Changes | Reason |
+|-----------|---------|--------|
+| **index.html** | Add search UI, preview toggle, intro section, theme toggle | New feature UI |
+| **index.html (CSS)** | Convert to CSS variables, add dark theme | Theme support |
+| **TranscriptController** | NONE | Cut highlighting already complete |
+| **CutController** | NONE | Already provides `getCutAtTime()` |
+| **AudioService** | NONE | PreviewService wraps it, no changes |
+
+### External Dependencies
+
+| Library | Version | Purpose | Integration |
+|---------|---------|---------|-------------|
+| **mark.js** | Latest (v8.11+) | Text highlighting | CDN or npm, vanilla JS |
+
+### Data Flow Updates
+
+#### Preview Playback Flow (NEW)
+```
+User toggles "Preview Mode"
+    ↓
+PreviewService.enablePreview()
+    ↓
+AudioService 'timeupdate' event (~4x/sec)
+    ↓
+PreviewService.skipHandler()
+    ↓
+Check: CutController.getCutAtTime(currentTime)
+    ↓ (if in cut region)
+AudioService.seek(cutRegion.endTime)
+```
+
+#### Search Flow (NEW)
+```
+User types in search input
+    ↓
+SearchController.search(query)
+    ↓
+markInstance.unmark() then markInstance.mark(query)
+    ↓
+mark.js traverses transcript DOM
+    ↓
+Wraps matches in <mark> tags with .search-highlight class
+    ↓
+CSS applies yellow background to matches
+```
+
+#### Theme Toggle Flow (NEW)
+```
+User clicks theme toggle button
+    ↓
+document.body.classList.toggle('dark-theme')
+    ↓
+CSS variables update (:root vs body.dark-theme)
+    ↓
+All components re-render with new colors (automatic)
+    ↓
+localStorage.setItem('theme', 'dark'/'light')
+```
+
+## Build Order Recommendation
+
+### Phase 1: Foundation (No Dependencies)
+1. **Dark theme** - CSS refactoring, no component changes
+2. **Intro text** - Static HTML, independent of other features
+
+### Phase 2: Core Features (Depend on Foundation)
+3. **Search** - New SearchController, works with existing transcript
+4. **Preview playback** - New PreviewService, integrates with existing services
+
+### Phase 3: Polish (Optional Enhancements)
+5. Enhance cut region highlighting styles (already functional)
+6. Add keyboard shortcuts for common actions
+7. Add search navigation (next/previous match)
+
+**Rationale:**
+- Dark theme and intro text have zero dependencies, can be done in parallel
+- Search and preview require testing with existing data, benefit from completed UI
+- Polish phase is optional, can be deferred if time-constrained
+
+## Integration Patterns Validated
+
+### Pattern 1: Event Delegation on Transcript Container
+
+**Used by:** TranscriptController for word click-to-seek
+
+**Why it works:** Transcript container is re-rendered frequently (new transcripts, cut highlighting). Event delegation avoids re-attaching listeners.
+
+**Applied to v3.0:**
+- mark.js operates on same container, no listener conflicts
+- SearchController doesn't need to coordinate with TranscriptController
+
+### Pattern 2: Callback-Based Communication
+
+**Used by:** CutController → index.html → TranscriptController
+
+**Why it works:** Loose coupling, controller doesn't know about consumers
+
+**Applied to v3.0:**
+- PreviewService can use same pattern: `onPreviewModeChanged` callback
+- No need to refactor existing architecture
+
+### Pattern 3: Service Wrapping
+
+**Used by:** PlayerController wraps AudioService for UI concerns
+
+**Why it works:** Separates playback logic (AudioService) from UI state (PlayerController)
+
+**Applied to v3.0:**
+- PreviewService wraps AudioService for preview-specific logic
+- No changes to AudioService itself
+- PlayerController and PreviewService can coexist
+
+### Pattern 4: Data Attributes for State
+
+**Used by:** Transcript words store `data-start`, `data-end` attributes
+
+**Why it works:** DOM elements carry their own data, no need for parallel data structures
+
+**Applied to v3.0:**
+- mark.js preserves data attributes when wrapping text
+- No interference with existing click-to-seek functionality
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Tight Coupling mark.js to TranscriptController
+
+**What people do:** Embed mark.js instance inside TranscriptController
+
+**Why it's wrong:** Search is a separate concern from transcript rendering. Coupling makes both components harder to test and modify.
+
+**Do this instead:** Create separate SearchController that operates on transcript container DOM. TranscriptController and SearchController are independent consumers of same DOM.
+
+### Anti-Pattern 2: Modifying AudioService for Preview
+
+**What people do:** Add `isPreviewMode` flag and skip logic inside AudioService
+
+**Why it's wrong:** AudioService is a low-level wrapper around HTML5 Audio. Adding feature-specific logic bloats it and makes it harder to test.
+
+**Do this instead:** Create PreviewService that wraps AudioService. AudioService remains generic, PreviewService adds preview-specific behavior.
+
+### Anti-Pattern 3: Muting Cuts Instead of Skipping
+
+**What people do:** Set volume to 0 during cut regions instead of seeking
+
+**Why it's wrong:** User still waits through muted sections. Preview is meant to show "what the final audio will sound like", which means cuts should be removed, not muted.
+
+**Do this instead:** Use `audioService.seek()` to jump to end of cut region. This mirrors the actual processing behavior where cuts are removed.
+
+**Reference:** [Audacity playback documentation](https://manual.audacityteam.org/man/playback.html) shows professional editors skip muted regions, not play them silently.
+
+### Anti-Pattern 4: Inline Color Styles Instead of CSS Variables
+
+**What people do:** Define dark theme colors in JavaScript and apply via `element.style.color`
+
+**Why it's wrong:** JavaScript manages CSS state, harder to maintain, performance overhead, prevents CSS-only theme switching.
+
+**Do this instead:** Define color schemes in CSS variables, toggle via class on `<body>`. All color changes are automatic CSS re-evaluation.
+
+**Reference:** [CSS-Tricks dark mode guide](https://css-tricks.com/a-complete-guide-to-dark-mode-on-the-web/) recommends CSS variables as best practice.
+
+## Scalability Considerations
+
+| Scale | V3.0 Considerations |
+|-------|---------------------|
+| **Transcript size** | mark.js handles large documents efficiently. For 60-min podcasts (~9000 words), performance is acceptable. |
+| **Cut region count** | Preview skip logic runs on timeupdate (~4x/sec). Checking 10-20 cuts per event is negligible. |
+| **Search query complexity** | mark.js uses regex internally. Complex queries (many OR terms) may slow down. Acceptable for v3.0. |
+| **Theme switching** | CSS variable update is instant. No performance concerns. |
+
+## Testing Recommendations
+
+### Preview Playback
+- Test with cut at start of audio (0-5s) - should skip immediately on play
+- Test with cut at end of audio - should pause/end at cut, not overflow
+- Test with adjacent cuts (5-10s, 10-15s) - should skip both continuously
+- Test with overlapping timeupdate and seek - ensure no infinite loop
+
+### Search Integration
+- Test search while audio playing - mark.js should not interfere with active word highlight
+- Test search with cut regions - both CSS classes should coexist (.search-highlight + .in-cut-region)
+- Test clear search - all highlights removed, transcript still functional
+- Test search with special characters (regex escaping)
+
+### Dark Theme
+- Test all UI states (hover, active, disabled, error) in both themes
+- Test cut region visibility in dark theme (sufficient contrast)
+- Test search highlights in dark theme (yellow still visible)
+- Test theme persistence (reload page, theme should restore)
+
+### Integration Tests
+- Test all features active simultaneously (preview + search + cuts + dark theme)
+- Test transcript regeneration with search active - search should clear or re-apply
+- Test cut modification during preview playback - preview should respect updated cuts
 
 ## Sources
 
-### Architecture & Integration
-- [FFmpeg.wasm GitHub Repository](https://github.com/ffmpegwasm/ffmpeg.wasm) - Official repository
-- [FFmpeg.wasm Overview Documentation](https://ffmpegwasm.netlify.app/docs/overview/) - Architecture overview
-- [FFmpeg.wasm API Reference](https://ffmpegwasm.netlify.app/docs/api/ffmpeg/classes/ffmpeg/) - API methods
-- [FFmpeg.wasm Usage Guide](https://ffmpegwasm.netlify.app/docs/getting-started/usage/) - Code examples
+**mark.js:**
+- [Official Documentation - markjs.io](https://markjs.io/)
+- [GitHub Repository - julkue/mark.js](https://github.com/julkue/mark.js)
 
-### Memory Management
-- [Building Browser-Based Audio Tools with FFmpeg.wasm (2024)](https://soundtools.io/blog/building-browser-audio-tools-ffmpeg-wasm/) - Memory management patterns
-- [Moving FFmpeg to the Browser: How I Saved 100% on Server Costs](https://dev.to/baojian_yuan/moving-ffmpeg-to-the-browser-how-i-saved-100-on-server-costs-using-webassembly-4l9f) - Memory cleanup strategies
-- [Mastering FFMPEG WASM](https://harryosmarsitohang.com/articles/ffmpeg-wasm) - Performance considerations
+**HTML5 Audio APIs:**
+- [MDN: Media buffering, seeking, and time ranges](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Audio_and_video_delivery/buffering_seeking_time_ranges)
+- [W3Schools: HTML Audio/Video DOM timeupdate Event](https://www.w3schools.com/tags/av_event_timeupdate.asp)
+- [GitHub Gist: Audio Player with skip function](https://gist.github.com/neilwave/b425d04997540513b05e3afe75c03381)
 
-### Progress & Monitoring
-- [Progress event value · Issue #600](https://github.com/ffmpegwasm/ffmpeg.wasm/issues/600) - Progress limitations
-- [FFmpeg WASM encoding progress](https://www.japj.net/2025/04/21/ffmpeg-wasm-encoding-progress/) - Alternative progress tracking (April 2025)
+**Dark Theme Best Practices:**
+- [Best Practices for Dark Mode in Web Design 2026](https://natebal.com/best-practices-for-dark-mode/)
+- [Dark Mode with CSS: A Comprehensive Guide (2026)](https://618media.com/en/blog/dark-mode-with-css-a-comprehensive-guide/)
+- [Dark Mode in CSS Guide | CSS-Tricks](https://css-tricks.com/a-complete-guide-to-dark-mode-on-the-web/)
+- [Dark Mode CSS Complete Guide - design.dev](https://design.dev/guides/dark-mode-css/)
 
-### Audio Processing Techniques
-- [How to Cut Sections out of an MP4 File with FFmpeg](https://markheath.net/post/cut-and-concatenate-with-ffmpeg) - Cut and concat patterns
-- [Practical ffmpeg commands to manipulate a video](https://transang.me/practical-ffmpeg-commands-to-manipulate-a-video/) - Filter examples
-- [FFmpeg Filters Documentation](https://ffmpeg.org/ffmpeg-filters.html) - Official filter reference
+**Audio Editor Patterns:**
+- [Audacity Playback Manual](https://manual.audacityteam.org/man/playback.html)
+- [Logic Pro: Mute and solo regions](https://support.apple.com/guide/logicpro/mute-and-solo-regions-lgcp2217b80d/mac)
 
 ---
-*Architecture research for: PodEdit V2.0 FFmpeg.wasm integration*
-*Researched: 2026-01-26*
+*Architecture research for: PodEdit v3.0 UX Enhancements*
+*Researched: 2026-01-28*
+*Confidence: HIGH - All integration patterns validated against existing codebase*
