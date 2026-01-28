@@ -97,6 +97,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 007 | update readme with current app status | 2026-01-28 | 4302e98 | [007-update-readme-with-current-app-status](./quick/007-update-readme-with-current-app-status/) |
 | 006 | update readme.md with latest updates and features and instructions | 2026-01-28 | 6937100 | [006-update-readme-md-with-latest-updates-and](./quick/006-update-readme-md-with-latest-updates-and/) |
 
 ### Blockers/Concerns
