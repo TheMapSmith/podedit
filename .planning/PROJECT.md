@@ -8,15 +8,25 @@ A local web app for editing podcast audio files using transcript navigation. Upl
 
 Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser.
 
-## Current Milestone: v2.0 In-Browser Audio Processing
+## Current State
 
-**Goal:** Add browser-based audio processing to generate edited audio files directly, eliminating the need for external scripts.
+**Latest Release:** v2.0 In-Browser Audio Processing (shipped 2026-01-28)
 
-**Target features:**
-- FFmpeg.wasm integration for browser-based audio processing
-- Apply marked cuts to remove unwanted sections from audio
-- Download processed audio file with cuts removed
-- Process 45-90 minute podcasts in the browser without server upload
+**What works now:**
+- Upload audio files (MP3, WAV, M4A) with memory-efficient streaming
+- Generate timestamped transcripts via API (OpenAI Whisper, Deepgram, etc.)
+- Navigate audio by clicking words in transcript with auto-scroll
+- Mark cut regions with visual feedback and editable timestamps
+- Process audio in browser with FFmpeg.wasm (no server required)
+- Download edited audio with cuts removed and timestamped filenames
+- Cancel processing operations and see real-time progress with FFmpeg logs
+
+**Tech Stack:**
+- ~4,100 LOC JavaScript + HTML
+- Vite dev server with cross-origin isolation headers (COOP/COEP)
+- FFmpeg.wasm for browser-based audio processing
+- API-based transcription (OpenAI Whisper API)
+- Local development only (no deployment)
 
 ## Requirements
 
@@ -31,12 +41,22 @@ From v1.0 (shipped 2026-01-24):
 - ✓ Audio player supports play/pause/seek controls
 - ✓ Transcript displays with clear timestamp markers
 
+From v2.0 (shipped 2026-01-28):
+- ✓ User can process audio in the browser to apply marked cuts — v2.0
+- ✓ User can download edited audio file with cut regions removed — v2.0
+- ✓ System handles large podcast files (45-90 min) in browser memory — v2.0 (with 50 MB warning, 100 MB limit)
+- ✓ FFmpeg.wasm loads on-demand to avoid slowing page load — v2.0
+- ✓ Cross-origin isolation headers enable SharedArrayBuffer for multi-threading — v2.0
+- ✓ User can cancel long-running processing operations — v2.0
+- ✓ System shows processing time estimates and progress feedback — v2.0
+
 ### Active
 
-v2.0 goals:
-- [ ] User can process audio in the browser to apply marked cuts
-- [ ] User can download edited audio file with cut regions removed
-- [ ] System handles large podcast files (45-90 min) in browser memory
+Future enhancements:
+- [ ] Format conversion options (MP3→WAV, M4A→MP3)
+- [ ] Preview processed audio before download
+- [ ] Batch processing for multiple files
+- [ ] Keyboard shortcuts for common operations
 
 ### Out of Scope
 
@@ -72,4 +92,4 @@ The transcript is the primary navigation tool - the user skims text to find prob
 | Basic audio player | Core functionality sufficient, no visualization needed | — Pending |
 
 ---
-*Last updated: 2026-01-26 after milestone v2.0 initialization*
+*Last updated: 2026-01-28 after v2.0 milestone completion*

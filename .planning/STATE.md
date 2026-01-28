@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-26)
+See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Phase 9 - Error Handling & Polish (v2.0)
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 9 of 10 (Error Handling & Polish)
-Plan: 2 of 2 in phase
-Status: Phase 9 complete
-Last activity: 2026-01-28 — Completed quick task 007: update readme with current app status
+Phase: v2.0 milestone complete (Phases 1-9)
+Plan: Not started
+Status: Ready to plan next milestone
+Last activity: 2026-01-28 — v2.0 milestone complete
 
-Progress: [█████████░] 90% (v1.0 complete, Phase 6-9 complete)
+Progress: [█████████░] 90% (v1.0 complete, v2.0 Phases 6-9 complete)
 
 ## Performance Metrics
 
@@ -55,9 +55,9 @@ Progress: [█████████░] 90% (v1.0 complete, Phase 6-9 complet
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
+See .planning/PROJECT.md for key decisions table.
 
-Recent decisions affecting v2.0 work:
+v2.0 decisions (full list in archived milestones/v2-ROADMAP.md):
 - **FFmpeg.wasm for browser processing:** Maintains privacy, eliminates backend complexity
 - **Multi-threaded core (@ffmpeg/core-mt):** 2x performance improvement (3-6 min vs 6-12 min for 60-min podcast)
 - **Vite migration required:** Cross-origin isolation headers (COOP/COEP) needed for SharedArrayBuffer/multi-threading
@@ -91,7 +91,8 @@ Recent decisions affecting v2.0 work:
 
 ### Pending Todos
 
-None yet.
+- Consider Phase 10 UAT & Browser Compatibility testing
+- Or start planning next milestone with /gsd:new-milestone
 
 ### Quick Tasks Completed
 
@@ -119,9 +120,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 09-02-PLAN.md (Processing time estimation & log display)
+Stopped at: v2.0 milestone complete and archived
 Resume file: None
-Next: Continue Phase 9 (Error handling and polish) or Phase 10 (UAT and browser compatibility testing)
+Next: /gsd:new-milestone to start planning next milestone
 
 ---
 
