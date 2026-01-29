@@ -81,10 +81,10 @@ Plans:
   1. Cut regions display with shaded amber background and left border in transcript
   2. Cut region styling is visible in dark theme with sufficient contrast
   3. Visual feedback is immediate when user marks or removes cuts
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 11-01: TBD during plan-phase
+- [ ] 11-01-PLAN.md — Verify and validate cut region highlighting with dark theme contrast
 
 #### Phase 12: Transcript Search
 **Goal**: Real-time transcript search with highlighting helps users quickly find sections to edit
@@ -132,6 +132,6 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 8. Export & Download | v2.0 | Complete | Complete | 2026-01-28 |
 | 9. Error Handling & Polish | v2.0 | Complete | Complete | 2026-01-28 |
 | 10. Dark Theme & Onboarding UI | v3.0 | 2/2 | Complete | 2026-01-29 |
-| 11. Cut Region Visual Highlighting | v3.0 | 0/TBD | Not started | - |
+| 11. Cut Region Visual Highlighting | v3.0 | 0/1 | Not started | - |
 | 12. Transcript Search | v3.0 | 0/TBD | Not started | - |
 | 13. Preview Playback | v3.0 | 0/TBD | Not started | - |
