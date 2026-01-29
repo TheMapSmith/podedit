@@ -1137,7 +1137,7 @@
           done: () => {
             this.markInstance.mark(searchTerm, {
               className: 'search-highlight',
-              separateWordSearch: false,
+              separateWordSearch: true,
               accuracy: 'partially',
               caseSensitive: false
             });
@@ -1216,6 +1216,20 @@
 
     // Store current file reference for processing
     let currentFile = null;
+
+    // Store last clicked word timestamp (for marking cuts when audio not loaded)
+    let lastClickedTimestamp = null;
+
+    // Track clicked word timestamps for cut marking without audio
+    elements.transcriptContainer.addEventListener('click', (event) => {
+      const wordElement = event.target.closest('.transcript-word');
+      if (wordElement) {
+        const startTime = parseFloat(wordElement.getAttribute('data-start'));
+        if (!isNaN(startTime)) {
+          lastClickedTimestamp = startTime;
+        }
+      }
+    });
 
     // Check compatibility on page load
     function checkBrowserCompatibility() {
@@ -1363,7 +1377,15 @@
         // Hide progress
         elements.transcriptionProgress.classList.add('hidden');
 
+        // Show player controls (note: playback won't work until audio file is uploaded)
+        elements.playerControls.classList.remove('hidden');
+
+        // Show cut section and enable mark start button
+        elements.cutSection.classList.remove('hidden');
+        elements.markStartBtn.disabled = false;
+
         // Note: Audio is NOT loaded - user must upload file for playback
+        // However, UI is now visible and manual time entry for cuts will work
         console.log('Loaded transcript from cache:', hash);
       } catch (error) {
         elements.errorDisplay.textContent = `Failed to load transcript: ${error.message}`;
@@ -1696,13 +1718,25 @@
 
     // Mark Start button
     elements.markStartBtn.addEventListener('click', () => {
-      const currentTime = audioService.getCurrentTime();
+      let currentTime = audioService.getCurrentTime();
+
+      // Fallback to last clicked word timestamp if audio not loaded
+      if ((!currentTime || currentTime === 0) && lastClickedTimestamp !== null) {
+        currentTime = lastClickedTimestamp;
+      }
+
       cutController.markStart(currentTime);
     });
 
     // Mark End button
     elements.markEndBtn.addEventListener('click', () => {
-      const currentTime = audioService.getCurrentTime();
+      let currentTime = audioService.getCurrentTime();
+
+      // Fallback to last clicked word timestamp if audio not loaded
+      if ((!currentTime || currentTime === 0) && lastClickedTimestamp !== null) {
+        currentTime = lastClickedTimestamp;
+      }
+
       cutController.markEnd(currentTime);
     });
 
