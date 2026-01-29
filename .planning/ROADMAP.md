@@ -95,10 +95,10 @@ Plans:
   2. Search highlighting remains visible on cut regions without visual conflicts
   3. Search input has clear/reset functionality to remove all highlights
   4. Search performance remains responsive on large transcripts (60-90 minute podcasts)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 12-01: TBD during plan-phase
+- [ ] 12-01-PLAN.md — Real-time search with mark.js and CSS specificity hierarchy
 
 #### Phase 13: Preview Playback
 **Goal**: Preview playback automatically skips cut regions to match final exported audio
@@ -133,5 +133,5 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 9. Error Handling & Polish | v2.0 | Complete | Complete | 2026-01-28 |
 | 10. Dark Theme & Onboarding UI | v3.0 | 2/2 | Complete | 2026-01-29 |
 | 11. Cut Region Visual Highlighting | v3.0 | 1/1 | Complete | 2026-01-29 |
-| 12. Transcript Search | v3.0 | 0/TBD | Not started | - |
+| 12. Transcript Search | v3.0 | 0/1 | Not started | - |
 | 13. Preview Playback | v3.0 | 0/TBD | Not started | - |
