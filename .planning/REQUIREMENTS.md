@@ -12,9 +12,9 @@ Requirements for v3.0 UX & Preview Enhancements milestone. Each maps to roadmap 
 - [ ] **VIS-01**: Cut regions display with shaded amber background in transcript
 - [ ] **VIS-02**: Cut regions display with left border for visual boundary
 - [ ] **VIS-03**: Cut region styling is visible in dark theme with sufficient contrast
-- [ ] **VIS-04**: Application displays with dark podcast/audio editor theme by default
-- [ ] **VIS-05**: Dark theme uses WCAG AA compliant contrast ratios for all text
-- [ ] **VIS-06**: Dark theme colors follow professional audio editor conventions
+- [x] **VIS-04**: Application displays with dark podcast/audio editor theme by default
+- [x] **VIS-05**: Dark theme uses WCAG AA compliant contrast ratios for all text
+- [x] **VIS-06**: Dark theme colors follow professional audio editor conventions
 
 ### Navigation & Discovery
 
@@ -29,10 +29,10 @@ Requirements for v3.0 UX & Preview Enhancements milestone. Each maps to roadmap 
 
 ### Onboarding
 
-- [ ] **ONB-01**: Getting started instructions display on empty state (no file loaded)
-- [ ] **ONB-02**: Instructions describe 3-step workflow (upload, transcribe, mark/export)
-- [ ] **ONB-03**: Instructions emphasize privacy value prop (browser-only processing)
-- [ ] **ONB-04**: Instructions hide after user uploads first file
+- [x] **ONB-01**: Getting started instructions display on empty state (no file loaded)
+- [x] **ONB-02**: Instructions describe 3-step workflow (upload, transcribe, mark/export)
+- [x] **ONB-03**: Instructions emphasize privacy value prop (browser-only processing)
+- [x] **ONB-04**: Instructions hide after user uploads first file
 
 ## v3.1+ Requirements
 
@@ -80,9 +80,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VIS-01 | Phase 11 | Pending |
 | VIS-02 | Phase 11 | Pending |
 | VIS-03 | Phase 11 | Pending |
-| VIS-04 | Phase 10 | Pending |
-| VIS-05 | Phase 10 | Pending |
-| VIS-06 | Phase 10 | Pending |
+| VIS-04 | Phase 10 | Complete |
+| VIS-05 | Phase 10 | Complete |
+| VIS-06 | Phase 10 | Complete |
 | NAV-01 | Phase 12 | Pending |
 | NAV-02 | Phase 12 | Pending |
 | NAV-03 | Phase 12 | Pending |
@@ -91,10 +91,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NAV-06 | Phase 13 | Pending |
 | NAV-07 | Phase 13 | Pending |
 | NAV-08 | Phase 13 | Pending |
-| ONB-01 | Phase 10 | Pending |
-| ONB-02 | Phase 10 | Pending |
-| ONB-03 | Phase 10 | Pending |
-| ONB-04 | Phase 10 | Pending |
+| ONB-01 | Phase 10 | Complete |
+| ONB-02 | Phase 10 | Complete |
+| ONB-03 | Phase 10 | Complete |
+| ONB-04 | Phase 10 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 18 total

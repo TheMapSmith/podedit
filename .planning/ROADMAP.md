@@ -70,8 +70,8 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Dark theme with CSS Custom Properties and FOUC prevention
-- [ ] 10-02-PLAN.md — Getting started UI with 3-step workflow and privacy messaging
+- [x] 10-01-PLAN.md — Dark theme with CSS Custom Properties and FOUC prevention
+- [x] 10-02-PLAN.md — Getting started UI with 3-step workflow and privacy messaging
 
 #### Phase 11: Cut Region Visual Highlighting
 **Goal**: Cut regions display with visual feedback in transcript for clear editing context
@@ -131,7 +131,7 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 7. Audio Processing Core | v2.0 | Complete | Complete | 2026-01-28 |
 | 8. Export & Download | v2.0 | Complete | Complete | 2026-01-28 |
 | 9. Error Handling & Polish | v2.0 | Complete | Complete | 2026-01-28 |
-| 10. Dark Theme & Onboarding UI | v3.0 | 0/2 | Not started | - |
+| 10. Dark Theme & Onboarding UI | v3.0 | 2/2 | Complete | 2026-01-29 |
 | 11. Cut Region Visual Highlighting | v3.0 | 0/TBD | Not started | - |
 | 12. Transcript Search | v3.0 | 0/TBD | Not started | - |
 | 13. Preview Playback | v3.0 | 0/TBD | Not started | - |
