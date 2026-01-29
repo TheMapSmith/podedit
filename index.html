@@ -77,6 +77,8 @@
       --cut-invalid-bg: #fff5f5;
       --speaker-label: #666666;
       --overlay-bg: rgba(0, 0, 0, 0.05);
+      --search-highlight-bg: #ffeb3b;
+      --search-highlight-color: #000000;
     }
 
     /* Dark Theme Override - Professional Audio Editor Palette */
@@ -135,6 +137,8 @@
       --cut-invalid-bg: #3d2a2a;
       --speaker-label: #909090;
       --overlay-bg: rgba(255, 255, 255, 0.05);
+      --search-highlight-bg: #f59e0b;
+      --search-highlight-color: #1a1a1a;
     }
 
 
@@ -704,6 +708,59 @@
       background-color: var(--cut-region-highlight);
     }
 
+    /* Search container */
+    .search-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      align-items: center;
+    }
+
+    #search-input {
+      flex: 1;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+
+    #search-input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--border-focus);
+    }
+
+    #search-input::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    #search-clear-button {
+      padding: 10px 20px;
+      white-space: nowrap;
+    }
+
+    /* Search highlighting - higher specificity than cut regions */
+    mark.search-highlight {
+      background-color: var(--search-highlight-bg);
+      color: var(--search-highlight-color);
+      padding: 2px 0;
+      border-radius: 2px;
+    }
+
+    /* Search highlight on cut regions - both classes visible */
+    .transcript-word.in-cut-region mark.search-highlight {
+      /* Search highlight takes precedence visually */
+      background-color: var(--search-highlight-bg);
+      color: var(--search-highlight-color);
+      /* Keep cut region border visible for context */
+      border-left: 3px solid var(--cut-region-border);
+      padding-left: 6px;
+      margin-left: 2px;
+    }
+
     /* Transcript history section */
     .transcript-history {
       margin-bottom: 20px;
@@ -999,6 +1056,11 @@
 
       <div id="transcription-error" class="transcription-error"></div>
 
+      <div id="search-container" class="search-container">
+        <input type="text" id="search-input" placeholder="Search transcript..." />
+        <button id="search-clear-button">Clear</button>
+      </div>
+
       <div id="transcript-container" class="transcript-container">
         <p class="transcript-placeholder">Click "Generate Transcript" to transcribe the audio.</p>
       </div>
@@ -1037,6 +1099,69 @@
     import AudioProcessingService from './src/services/audioProcessingService.js';
     import { validateAudioFile, validateForProcessing } from './src/services/fileValidator.js';
     import { formatFileSize } from './src/utils/timeFormat.js';
+    import Mark from './node_modules/mark.js/dist/mark.es6.min.js';
+
+    // SearchController class
+    class SearchController {
+      constructor(elements, transcriptController) {
+        this.searchInput = elements.searchInput;
+        this.clearButton = elements.clearButton;
+        this.transcriptContainer = elements.transcriptContainer;
+        this.transcriptController = transcriptController;
+        this.markInstance = new Mark(this.transcriptContainer);
+        this.debounceTimeout = null;
+
+        // Bind event listeners
+        this.searchInput.addEventListener('input', () => this.onSearchInput());
+        this.clearButton.addEventListener('click', () => this.clearSearch());
+      }
+
+      onSearchInput() {
+        // Implement debouncing
+        if (this.debounceTimeout) {
+          clearTimeout(this.debounceTimeout);
+        }
+        this.debounceTimeout = setTimeout(() => this.performSearch(), 300);
+      }
+
+      performSearch() {
+        const searchTerm = this.searchInput.value.trim();
+
+        if (!searchTerm) {
+          this.clearSearch();
+          return;
+        }
+
+        // Unmark existing highlights before marking new ones
+        this.markInstance.unmark({
+          done: () => {
+            this.markInstance.mark(searchTerm, {
+              className: 'search-highlight',
+              separateWordSearch: false,
+              accuracy: 'partially',
+              caseSensitive: false
+            });
+          }
+        });
+      }
+
+      clearSearch() {
+        this.searchInput.value = '';
+        this.markInstance.unmark();
+        if (this.debounceTimeout) {
+          clearTimeout(this.debounceTimeout);
+        }
+      }
+
+      cleanup() {
+        this.markInstance.unmark();
+        if (this.debounceTimeout) {
+          clearTimeout(this.debounceTimeout);
+        }
+        this.searchInput.removeEventListener('input', () => this.onSearchInput());
+        this.clearButton.removeEventListener('click', () => this.clearSearch());
+      }
+    }
 
     // DOM element references
     const elements = {
@@ -1073,7 +1198,10 @@
       ffmpegLogs: document.getElementById('ffmpeg-logs'),
       processingEstimate: document.getElementById('processing-estimate'),
       testFfmpegBtn: document.getElementById('test-ffmpeg-btn'),
-      gettingStartedSection: document.getElementById('getting-started-section')
+      gettingStartedSection: document.getElementById('getting-started-section'),
+      searchInput: document.getElementById('search-input'),
+      searchClearButton: document.getElementById('search-clear-button'),
+      searchContainer: document.getElementById('search-container')
     };
 
     // Initialize AudioService and PlayerController
@@ -1144,6 +1272,18 @@
 
     // Initialize ExportService
     const exportService = new ExportService();
+
+    // Initialize SearchController
+    const searchController = transcriptController
+      ? new SearchController({
+          searchInput: elements.searchInput,
+          clearButton: elements.searchClearButton,
+          transcriptContainer: elements.transcriptContainer
+        }, transcriptController)
+      : null;
+
+    // Store in window scope for debugging
+    window.searchController = searchController;
 
     // Wire transcript navigation to player time updates
     if (transcriptController) {
@@ -1749,6 +1889,9 @@
       playerController.cleanup();
       if (transcriptController) {
         transcriptController.cleanup();
+      }
+      if (searchController) {
+        searchController.cleanup();
       }
     });
   </script>
