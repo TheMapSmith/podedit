@@ -129,9 +129,9 @@
       --shadow: rgba(0, 0, 0, 0.4);
       --shadow-strong: rgba(0, 0, 0, 0.6);
       --highlight-active: #856404;
-      --cut-region-bg: #856404;
+      --cut-region-bg: #6b5103;
       --cut-region-border: #ffc107;
-      --cut-region-highlight: #a17905;
+      --cut-region-highlight: #604502;
       --cut-invalid-bg: #3d2a2a;
       --speaker-label: #909090;
       --overlay-bg: rgba(255, 255, 255, 0.05);
@@ -689,6 +689,18 @@
     }
 
     .transcript-segment.in-cut-region.active {
+      background-color: var(--cut-region-highlight);
+    }
+
+    /* Word-level cut highlighting */
+    .transcript-word.in-cut-region {
+      background-color: var(--cut-region-bg);
+      border-left: 3px solid var(--cut-region-border);
+      padding-left: 6px;
+      margin-left: 2px;
+    }
+
+    .transcript-word.in-cut-region.active {
       background-color: var(--cut-region-highlight);
     }
 

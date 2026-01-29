@@ -1,5 +1,5 @@
 {
-  "model_profile": "balanced",
+  "model_profile": "budget",
   "workflow": {
     "research": false,
     "plan_check": false,
