@@ -18,10 +18,10 @@ Requirements for v3.0 UX & Preview Enhancements milestone. Each maps to roadmap 
 
 ### Navigation & Discovery
 
-- [ ] **NAV-01**: User can search transcript with text input
-- [ ] **NAV-02**: Search highlights all matching words in real-time as user types
-- [ ] **NAV-03**: Search highlighting remains visible on cut regions
-- [ ] **NAV-04**: Search input has clear/reset functionality
+- [x] **NAV-01**: User can search transcript with text input
+- [x] **NAV-02**: Search highlights all matching words in real-time as user types
+- [x] **NAV-03**: Search highlighting remains visible on cut regions
+- [x] **NAV-04**: Search input has clear/reset functionality
 - [ ] **NAV-05**: Preview playback automatically skips all marked cut regions
 - [ ] **NAV-06**: Preview playback seeks past cut region when user clicks word inside cut
 - [ ] **NAV-07**: Preview playback handles overlapping or adjacent cuts correctly
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VIS-04 | Phase 10 | Complete |
 | VIS-05 | Phase 10 | Complete |
 | VIS-06 | Phase 10 | Complete |
-| NAV-01 | Phase 12 | Pending |
-| NAV-02 | Phase 12 | Pending |
-| NAV-03 | Phase 12 | Pending |
-| NAV-04 | Phase 12 | Pending |
+| NAV-01 | Phase 12 | Complete |
+| NAV-02 | Phase 12 | Complete |
+| NAV-03 | Phase 12 | Complete |
+| NAV-04 | Phase 12 | Complete |
 | NAV-05 | Phase 13 | Pending |
 | NAV-06 | Phase 13 | Pending |
 | NAV-07 | Phase 13 | Pending |
@@ -109,4 +109,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-29 after Phase 11 completion*
+*Last updated: 2026-01-29 after Phase 12 completion*

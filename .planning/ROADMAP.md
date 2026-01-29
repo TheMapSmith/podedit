@@ -98,7 +98,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 12-01-PLAN.md — Real-time search with mark.js and CSS specificity hierarchy
+- [x] 12-01-PLAN.md — Real-time search with mark.js and CSS specificity hierarchy
 
 #### Phase 13: Preview Playback
 **Goal**: Preview playback automatically skips cut regions to match final exported audio
@@ -133,5 +133,5 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 9. Error Handling & Polish | v2.0 | Complete | Complete | 2026-01-28 |
 | 10. Dark Theme & Onboarding UI | v3.0 | 2/2 | Complete | 2026-01-29 |
 | 11. Cut Region Visual Highlighting | v3.0 | 1/1 | Complete | 2026-01-29 |
-| 12. Transcript Search | v3.0 | 0/1 | Not started | - |
+| 12. Transcript Search | v3.0 | 1/1 | Complete | 2026-01-29 |
 | 13. Preview Playback | v3.0 | 0/TBD | Not started | - |
