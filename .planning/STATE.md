@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Phase 11 - Cut Region Visual Highlighting (v3.0 milestone)
+**Current focus:** Phase 12 - Transcript Search (v3.0 milestone)
 
 ## Current Position
 
-Phase: 11 of 13 (Cut Region Visual Highlighting)
+Phase: 12 of 13 (Transcript Search)
 Plan: 1 of 1 in current phase
 Status: Complete
-Last activity: 2026-01-29 - Completed Phase 11 execution (11-01)
+Last activity: 2026-01-29 - Completed Phase 12 execution (12-01)
 
-Progress: [██████████▓] 85% (11 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9, v3.0 Phases 10-11)
+Progress: [███████████░] 92% (12 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9, v3.0 Phases 10-12)
 
 ## Performance Metrics
 
 **Velocity (All plans):**
-- Total plans completed: 19
-- Average duration: 2.4 minutes
-- Total execution time: 0.68 hours
+- Total plans completed: 20
+- Average duration: 2.3 minutes
+- Total execution time: 0.77 hours
 
 **By Phase:**
 
@@ -38,9 +38,10 @@ Progress: [██████████▓] 85% (11 of 13 phases complete: v1.
 | 09-error-handling-polish | 2/2 | 5min | 2.5min |
 | 10-dark-theme-&-onboarding-ui | 2/2 | 5min | 2.5min |
 | 11-cut-region-visual-highlighting | 1/1 | 3min | 3min |
+| 12-transcript-search | 1/1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 09-02 (3min), 10-01 (3min), 10-02 (2min), 11-01 (3min)
+- Last 5 plans: 10-01 (3min), 10-02 (2min), 11-01 (3min), 12-01 (2min)
 - Trend: Consistently fast (2-3 minutes per plan)
 
 *Updated: 2026-01-29*
@@ -65,6 +66,11 @@ Phase 10 decisions:
 Phase 11 decisions:
 - **Button baseline styling via element selector:** Ensures all buttons (current and future) receive dark theme styling automatically without class additions
 
+Phase 12 decisions:
+- **mark.js ES6 module:** Used mark.es6.min.js for production ESM support, no CommonJS compatibility issues
+- **300ms debounce timeout:** Prevents excessive DOM manipulation on large transcripts
+- **CSS specificity hierarchy:** .transcript-word.in-cut-region mark.search-highlight enables search and cut highlights to coexist
+
 v2.0 key decisions (full list in archived milestone docs):
 - FFmpeg.wasm browser processing maintains privacy
 - Multi-threaded core for 2x performance improvement
@@ -79,19 +85,19 @@ None yet - v3.0 planning just started.
 ### Blockers/Concerns
 
 **v3.0 Phase readiness (from research):**
-- **Phase 10:** Dark theme FOUC prevention requires inline script in head before CSS links
-- **Phase 12:** mark.js and cut highlighting both manipulate DOM - requires CSS specificity hierarchy and explicit unmark() cleanup
+- **Phase 10:** Dark theme FOUC prevention requires inline script in head before CSS links ✓ RESOLVED
+- **Phase 12:** mark.js and cut highlighting both manipulate DOM - requires CSS specificity hierarchy and explicit unmark() cleanup ✓ RESOLVED
 - **Phase 13:** Preview playback state machine must subscribe to CutController.onCutListChanged for synchronization
 - **Phase 13:** VBR MP3 seek imprecision requires 0.1-0.2s tolerance in skip logic
 
-All blockers have validated mitigation strategies from research phase.
+Phase 10, 11, 12 blockers resolved. Phase 13 blockers have validated mitigation strategies.
 
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 11-01-PLAN.md - Cut region visual highlighting validation and button styling
+Stopped at: Completed 12-01-PLAN.md - Real-time transcript search with mark.js
 Resume file: None
-Next: Phase 12 - Search Transcript (mark.js) or /gsd:plan-phase 12 for next plan
+Next: Phase 13 - Preview Playback with Skip (final v3.0 phase)
 
 ---
 
@@ -184,9 +190,11 @@ All 4 phases complete - PodEdit v2.0 milestone achieved 2026-01-28
 - 3px left border for clear cut region boundaries
 - Active playback highlight overlay on cut regions
 
-**Phase 12 - Search Transcript (mark.js): PENDING**
-- Will integrate mark.js for transcript search highlighting
-- Must handle CSS specificity with cut region highlighting
+**Phase 12 - Transcript Search: COMPLETE** ✓
+- Real-time search with mark.js highlighting
+- Debounced input (300ms) for performance on large transcripts
+- CSS specificity hierarchy enabling search and cut highlights to coexist
+- SearchController class for search state management
 
 **Phase 13 - Preview Playback with Skip: PENDING**
 - Preview mode plays audio with automatic cut region skipping
