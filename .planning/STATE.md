@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 10 of 13 (Dark Theme & Onboarding UI)
-Plan: 2 of TBD in current phase
+Plan: 1 of TBD in current phase
 Status: In progress
-Last activity: 2026-01-29 - Completed 10-02: Getting started instructions with privacy messaging
+Last activity: 2026-01-29 - Completed 10-01-PLAN.md
 
 Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9)
 
@@ -20,8 +20,8 @@ Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Ph
 
 **Velocity (All plans):**
 - Total plans completed: 17
-- Average duration: 2.2 minutes
-- Total execution time: 0.57 hours
+- Average duration: 2.3 minutes
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
@@ -36,10 +36,10 @@ Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Ph
 | 07-core-ffmpeg-wasm-processing | 2/2 | 4min | 2min |
 | 08-service-integration-and-download | 1/1 | 2min | 2min |
 | 09-error-handling-polish | 2/2 | 5min | 2.5min |
-| 10-dark-theme-&-onboarding-ui | 2/? | 4min | 2min |
+| 10-dark-theme-&-onboarding-ui | 1/? | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 07-02 (3min), 08-01 (2min), 09-01 (2min), 09-02 (3min), 10-02 (2min)
+- Last 5 plans: 08-01 (2min), 09-01 (2min), 09-02 (3min), 10-01 (3min)
 - Trend: Consistently fast (2-3 minutes per plan)
 
 *Updated: 2026-01-29*
@@ -57,10 +57,9 @@ Recent v3.0 roadmap decisions:
 - **Phase numbering continues from v2.0:** Phases 10-13 for v3.0 milestone (v2.0 ended at Phase 9)
 
 Phase 10 decisions:
-- **Static HTML instructions over modal/tooltip:** Contextual (visible when needed), non-intrusive, no dismissal fatigue
-- **Auto-hide onboarding after first upload:** Zero-click completion, localStorage persists state
-- **Privacy callout emphasized:** Build trust with browser-only processing message
-- **Numbered 3-step workflow:** Clear mental model (upload → transcribe → mark/export)
+- **Dark theme as default:** Professional audio editor convention, reduces eye strain in long editing sessions
+- **Inline FOUC prevention script:** Blocking synchronous execution prevents white flash, only way to guarantee theme before first paint
+- **Professional audio editor palette:** Dark grays (#1a-2d range) with muted accents matches Audacity/Descript conventions, WCAG AA compliant
 
 v2.0 key decisions (full list in archived milestone docs):
 - FFmpeg.wasm browser processing maintains privacy
@@ -86,7 +85,7 @@ All blockers have validated mitigation strategies from research phase.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 10-02-PLAN.md - Getting started instructions with privacy messaging
+Stopped at: Completed 10-01-PLAN.md - Dark theme with FOUC prevention
 Resume file: None
 Next: Continue Phase 10 plans or /gsd:plan-phase 10 for next plan
 
