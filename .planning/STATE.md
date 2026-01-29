@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 10 of 13 (Dark Theme & Onboarding UI)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-28 - v3.0 roadmap created with 4 phases covering 18 requirements
+Plan: 2 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-29 - Completed 10-02: Getting started instructions with privacy messaging
 
 Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9)
 
 ## Performance Metrics
 
 **Velocity (All plans):**
-- Total plans completed: 16
-- Average duration: 2.3 minutes
-- Total execution time: 0.53 hours
+- Total plans completed: 17
+- Average duration: 2.2 minutes
+- Total execution time: 0.57 hours
 
 **By Phase:**
 
@@ -36,12 +36,13 @@ Progress: [█████████░] 69% (9 of 13 phases complete: v1.0 Ph
 | 07-core-ffmpeg-wasm-processing | 2/2 | 4min | 2min |
 | 08-service-integration-and-download | 1/1 | 2min | 2min |
 | 09-error-handling-polish | 2/2 | 5min | 2.5min |
+| 10-dark-theme-&-onboarding-ui | 2/? | 4min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 07-01 (1min), 07-02 (3min), 08-01 (2min), 09-01 (2min), 09-02 (3min)
-- Trend: Consistently fast (1-3 minutes per plan)
+- Last 5 plans: 07-02 (3min), 08-01 (2min), 09-01 (2min), 09-02 (3min), 10-02 (2min)
+- Trend: Consistently fast (2-3 minutes per plan)
 
-*Updated: 2026-01-28*
+*Updated: 2026-01-29*
 
 ## Accumulated Context
 
@@ -54,6 +55,12 @@ Recent v3.0 roadmap decisions:
 - **Cut highlighting before search:** Validates DOM manipulation patterns before mark.js integration
 - **Preview playback last:** State machine complexity and dependency on stable cut highlighting
 - **Phase numbering continues from v2.0:** Phases 10-13 for v3.0 milestone (v2.0 ended at Phase 9)
+
+Phase 10 decisions:
+- **Static HTML instructions over modal/tooltip:** Contextual (visible when needed), non-intrusive, no dismissal fatigue
+- **Auto-hide onboarding after first upload:** Zero-click completion, localStorage persists state
+- **Privacy callout emphasized:** Build trust with browser-only processing message
+- **Numbered 3-step workflow:** Clear mental model (upload → transcribe → mark/export)
 
 v2.0 key decisions (full list in archived milestone docs):
 - FFmpeg.wasm browser processing maintains privacy
@@ -78,10 +85,10 @@ All blockers have validated mitigation strategies from research phase.
 
 ## Session Continuity
 
-Last session: 2026-01-28
-Stopped at: Created v3.0 roadmap with 4 phases (10-13), mapped all 18 requirements with 100% coverage
+Last session: 2026-01-29
+Stopped at: Completed 10-02-PLAN.md - Getting started instructions with privacy messaging
 Resume file: None
-Next: /gsd:plan-phase 10 to begin planning Dark Theme & Onboarding UI
+Next: Continue Phase 10 plans or /gsd:plan-phase 10 for next plan
 
 ---
 
