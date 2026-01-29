@@ -9,9 +9,9 @@ Requirements for v3.0 UX & Preview Enhancements milestone. Each maps to roadmap 
 
 ### Visual Feedback
 
-- [ ] **VIS-01**: Cut regions display with shaded amber background in transcript
-- [ ] **VIS-02**: Cut regions display with left border for visual boundary
-- [ ] **VIS-03**: Cut region styling is visible in dark theme with sufficient contrast
+- [x] **VIS-01**: Cut regions display with shaded amber background in transcript
+- [x] **VIS-02**: Cut regions display with left border for visual boundary
+- [x] **VIS-03**: Cut region styling is visible in dark theme with sufficient contrast
 - [x] **VIS-04**: Application displays with dark podcast/audio editor theme by default
 - [x] **VIS-05**: Dark theme uses WCAG AA compliant contrast ratios for all text
 - [x] **VIS-06**: Dark theme colors follow professional audio editor conventions
@@ -77,9 +77,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VIS-01 | Phase 11 | Pending |
-| VIS-02 | Phase 11 | Pending |
-| VIS-03 | Phase 11 | Pending |
+| VIS-01 | Phase 11 | Complete |
+| VIS-02 | Phase 11 | Complete |
+| VIS-03 | Phase 11 | Complete |
 | VIS-04 | Phase 10 | Complete |
 | VIS-05 | Phase 10 | Complete |
 | VIS-06 | Phase 10 | Complete |
@@ -109,4 +109,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-28 after v3.0 roadmap creation*
+*Last updated: 2026-01-29 after Phase 11 completion*
