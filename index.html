@@ -890,6 +890,45 @@
       font-weight: 500;
       color: var(--text-info);
     }
+
+    /* Button baseline styles - apply to utility buttons */
+    button {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color-dark);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--bg-hover);
+      border-color: var(--accent-primary);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      background: var(--accent-disabled);
+      cursor: not-allowed;
+      opacity: 0.6;
+      border-color: var(--border-color);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
+
+    #test-ffmpeg-btn {
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -932,7 +971,7 @@
       <div id="ffmpeg-logs" class="ffmpeg-logs" style="display: none;"></div>
     </div>
     <div id="processing-estimate" class="processing-estimate" style="display: none;"></div>
-    <button id="test-ffmpeg-btn" style="margin-top: 10px;">Test FFmpeg Loading</button>
+    <button id="test-ffmpeg-btn">Test FFmpeg Loading</button>
 
     <div id="player-controls" class="player-controls hidden">
       <div class="controls-row">
