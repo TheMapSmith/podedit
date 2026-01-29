@@ -4,6 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PodEdit</title>
+  <script>
+    // FOUC Prevention: Set theme before any rendering occurs
+    (function() {
+      // Check localStorage first
+      let theme = localStorage.getItem('theme');
+
+      // Fallback to system preference if no saved theme
+      if (!theme) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        theme = prefersDark ? 'dark' : 'dark'; // Default to dark (professional audio editor convention)
+      }
+
+      // Apply theme immediately
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <style>
     * {
       box-sizing: border-box;
@@ -704,11 +720,63 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
+
+    /* Getting Started panel */
+    .getting-started-panel {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .getting-started-panel h2 {
+      font-size: 20px;
+      color: #333;
+      margin: 0 0 15px 0;
+    }
+
+    .getting-started-panel ol {
+      margin: 0 0 15px 0;
+      padding-left: 24px;
+      line-height: 1.8;
+    }
+
+    .getting-started-panel li {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .getting-started-panel li strong {
+      font-weight: 600;
+      color: #000;
+    }
+
+    .privacy-callout {
+      background: rgba(0, 123, 255, 0.1);
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 15px;
+      font-weight: 500;
+      color: #004085;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>PodEdit</h1>
+
+    <div id="getting-started-section" class="getting-started-panel">
+      <h2>Getting Started</h2>
+      <ol>
+        <li><strong>Upload Audio:</strong> Choose an MP3, WAV, or M4A podcast file (up to 100 MB)</li>
+        <li><strong>Generate Transcript:</strong> Click "Generate Transcript" to create a timestamped transcript using AI (requires API key)</li>
+        <li><strong>Mark & Export:</strong> Click words to navigate, mark cut regions, then export edited audio or JSON file</li>
+      </ol>
+      <div class="privacy-callout">
+        Privacy first: All audio processing happens in your browser. Your files never leave your device.
+      </div>
+    </div>
 
     <div id="transcript-history" class="transcript-history empty">
       <h2>Previous Transcripts</h2>
@@ -835,7 +903,8 @@
       toggleLogsBtn: document.getElementById('toggle-logs-btn'),
       ffmpegLogs: document.getElementById('ffmpeg-logs'),
       processingEstimate: document.getElementById('processing-estimate'),
-      testFfmpegBtn: document.getElementById('test-ffmpeg-btn')
+      testFfmpegBtn: document.getElementById('test-ffmpeg-btn'),
+      gettingStartedSection: document.getElementById('getting-started-section')
     };
 
     // Initialize AudioService and PlayerController
@@ -996,6 +1065,11 @@
     // Initialize transcript history on page load
     loadTranscriptHistory();
 
+    // Check onboarding status on page load
+    if (localStorage.getItem('onboarding_completed') === 'true') {
+      elements.gettingStartedSection.classList.add('hidden');
+    }
+
     /**
      * Estimate processing time based on audio duration and file size
      * Multi-threaded FFmpeg: roughly 3-6 min for 60-min podcast
@@ -1124,6 +1198,10 @@
         // Show cut section and enable mark start button
         elements.cutSection.classList.remove('hidden');
         elements.markStartBtn.disabled = false;
+
+        // Hide getting started section and mark onboarding as complete
+        localStorage.setItem('onboarding_completed', 'true');
+        elements.gettingStartedSection.classList.add('hidden');
 
       } catch (error) {
         elements.errorDisplay.textContent = `Failed to load audio: ${error.message}`;
