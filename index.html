@@ -1101,6 +1101,103 @@
     import { formatFileSize } from './src/utils/timeFormat.js';
     import Mark from 'mark.js';
 
+    // PreviewController class - Manages preview playback mode with automatic cut region skipping
+    class PreviewController {
+      constructor(audioService, cutController) {
+        this.audioService = audioService;
+        this.cutController = cutController;
+        this.enabled = false;           // Preview mode state
+        this.lastSkipTime = -1;         // Prevent infinite loop
+        this.skipTolerance = 0.15;      // VBR MP3 seek tolerance (150ms)
+      }
+
+      /**
+       * Toggle preview mode on/off
+       * @returns {boolean} - New enabled state
+       */
+      togglePreview() {
+        this.enabled = !this.enabled;
+        // Reset skip tracking when toggling
+        this.lastSkipTime = -1;
+        return this.enabled;
+      }
+
+      /**
+       * Called at 60fps from PlayerController during playback
+       * Checks if currentTime is in a cut region and skips if needed
+       * @param {number} currentTime - Current playback time in seconds
+       */
+      onTimeUpdate(currentTime) {
+        if (!this.enabled) return;
+
+        // Check if current time falls within any cut region
+        const cut = this.cutController.getCutAtTime(currentTime);
+        if (!cut) {
+          // Not in a cut, clear skip tracking
+          this.lastSkipTime = -1;
+          return;
+        }
+
+        // We're in a cut region - check if we should skip
+        // Prevent infinite loop: don't skip if we just skipped recently
+        const timeSinceLastSkip = Math.abs(currentTime - this.lastSkipTime);
+        if (timeSinceLastSkip < this.skipTolerance) {
+          // Too close to last skip, don't skip again (VBR imprecision tolerance)
+          return;
+        }
+
+        // Find next safe time outside all cuts (handle overlapping/adjacent cuts)
+        const targetTime = this.findNextNonCutTime(cut.endTime);
+        this.skipToTime(targetTime);
+      }
+
+      /**
+       * Called when cut list changes (add/delete/update cuts)
+       * @param {CutRegion[]} cutRegions - Updated array of cut regions
+       */
+      onCutListChanged(cutRegions) {
+        // No action needed - cutController already has updated state
+        // We query cutController.getCutAtTime() on each time update
+      }
+
+      /**
+       * Seek to target time with loop prevention tracking
+       * @param {number} time - Target time in seconds
+       */
+      skipToTime(time) {
+        this.lastSkipTime = time;
+        this.audioService.seek(time);
+      }
+
+      /**
+       * Find next time that's NOT in any cut region
+       * Handles overlapping and adjacent cuts by recursively checking
+       * @param {number} startTime - Time to start searching from
+       * @returns {number} - First time outside all cut regions
+       */
+      findNextNonCutTime(startTime) {
+        let currentTime = startTime;
+        let iterations = 0;
+        const maxIterations = 100; // Safety limit to prevent infinite loops
+
+        // Keep checking if we're still in a cut
+        while (iterations < maxIterations) {
+          const cut = this.cutController.getCutAtTime(currentTime);
+          if (!cut) {
+            // Found a safe time outside all cuts
+            return currentTime;
+          }
+          // Still in a cut, jump to end of this cut
+          currentTime = cut.endTime;
+          iterations++;
+        }
+
+        // Safety fallback: return original time if we hit max iterations
+        console.warn('findNextNonCutTime: max iterations reached, potential overlapping cut issue');
+        return startTime;
+      }
+    }
+
     // SearchController class
     class SearchController {
       constructor(elements, transcriptController) {
