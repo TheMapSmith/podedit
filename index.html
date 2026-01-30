@@ -986,6 +986,31 @@
     #test-ffmpeg-btn {
       margin-top: 10px;
     }
+
+    /* Preview mode controls */
+    .preview-mode-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .preview-indicator {
+      font-size: 14px;
+      color: var(--accent-primary);
+      font-weight: 500;
+    }
+
+    .preview-indicator.hidden {
+      display: none;
+    }
+
+    /* Active state styling for toggle button */
+    #toggle-preview-btn.active {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      border-color: var(--accent-primary);
+    }
   </style>
 </head>
 <body>
@@ -1038,6 +1063,14 @@
       <div class="time-display">
         <span id="current-time">0:00</span>
         <span id="duration">0:00</span>
+      </div>
+      <div class="preview-mode-container">
+        <button id="toggle-preview-btn" class="utility-button">
+          Preview Mode: OFF
+        </button>
+        <span id="preview-indicator" class="preview-indicator hidden">
+          🎧 Skipping cuts
+        </span>
       </div>
     </div>
 
