@@ -1331,7 +1331,9 @@
       gettingStartedSection: document.getElementById('getting-started-section'),
       searchInput: document.getElementById('search-input'),
       searchClearButton: document.getElementById('search-clear-button'),
-      searchContainer: document.getElementById('search-container')
+      searchContainer: document.getElementById('search-container'),
+      togglePreviewBtn: document.getElementById('toggle-preview-btn'),
+      previewIndicator: document.getElementById('preview-indicator')
     };
 
     // Initialize AudioService and PlayerController
@@ -1429,12 +1431,35 @@
     // Store in window scope for debugging
     window.searchController = searchController;
 
+    // Initialize PreviewController
+    const previewController = new PreviewController(audioService, cutController);
+
     // Wire transcript navigation to player time updates
     if (transcriptController) {
       playerController.onTimeUpdate = (currentTime) => {
         transcriptController.onTimeUpdate(currentTime);
+        // Chain preview controller into time updates when enabled
+        if (previewController.enabled) {
+          previewController.onTimeUpdate(currentTime);
+        }
       };
     }
+
+    // Wire preview mode toggle button
+    elements.togglePreviewBtn.addEventListener('click', () => {
+      previewController.togglePreview();
+
+      // Update UI based on new state
+      if (previewController.enabled) {
+        elements.togglePreviewBtn.textContent = 'Preview Mode: ON';
+        elements.togglePreviewBtn.classList.add('active');
+        elements.previewIndicator.classList.remove('hidden');
+      } else {
+        elements.togglePreviewBtn.textContent = 'Preview Mode: OFF';
+        elements.togglePreviewBtn.classList.remove('active');
+        elements.previewIndicator.classList.add('hidden');
+      }
+    });
 
     // Helper: Format relative time (e.g., "2 hours ago")
     function formatRelativeTime(timestamp) {
@@ -1885,6 +1910,10 @@
       renderCutList(cuts);
       if (transcriptController && transcriptController.transcript) {
         transcriptController.highlightCutRegions(cuts);
+      }
+      // Chain preview controller notification when enabled
+      if (previewController.enabled) {
+        previewController.onCutListChanged(cuts);
       }
       // Enable/disable export buttons based on cuts availability
       const hasCuts = cuts.length > 0;
