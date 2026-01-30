@@ -110,10 +110,10 @@ Plans:
   3. Preview playback handles overlapping or adjacent cuts correctly without infinite loops
   4. Preview mode shows visual indicator so user knows skip behavior is active
   5. Preview mode updates dynamically when user adds or removes cuts during playback
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 13-01: TBD during plan-phase
+- [ ] 13-01-PLAN.md — Preview mode with PreviewController state machine and skip logic
 
 ## Progress
 
@@ -134,4 +134,4 @@ Phases execute in numeric order: 10 → 11 → 12 → 13
 | 10. Dark Theme & Onboarding UI | v3.0 | 2/2 | Complete | 2026-01-29 |
 | 11. Cut Region Visual Highlighting | v3.0 | 1/1 | Complete | 2026-01-29 |
 | 12. Transcript Search | v3.0 | 1/1 | Complete | 2026-01-29 |
-| 13. Preview Playback | v3.0 | 0/TBD | Not started | - |
+| 13. Preview Playback | v3.0 | 0/1 | Not started | - |
