@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-28)
+See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Transcript-driven audio editing that makes it fast to find, mark, and remove sections from podcast files without leaving the browser
-**Current focus:** Phase 12 - Transcript Search (v3.0 milestone)
+**Current focus:** Planning next milestone after v3.0 completion
 
 ## Current Position
 
-Phase: 12 of 13 (Transcript Search)
-Plan: 1 of 1 in current phase
-Status: Complete
-Last activity: 2026-01-29 - Completed Phase 12 execution (12-01)
+Phase: v3.0 milestone complete (Phases 10-13)
+Plan: Not started (awaiting next milestone definition)
+Status: Milestone complete, ready to plan next
+Last activity: 2026-01-30 - v3.0 milestone complete
 
-Progress: [███████████░] 92% (12 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9, v3.0 Phases 10-12)
+Progress: [████████████] 100% (13 of 13 phases complete: v1.0 Phases 1-5, v2.0 Phases 6-9, v3.0 Phases 10-13)
 
 ## Performance Metrics
 
@@ -50,54 +50,24 @@ Progress: [███████████░] 92% (12 of 13 phases complete: 
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
+All decisions are logged in PROJECT.md Key Decisions table.
 
-Recent v3.0 roadmap decisions:
-- **Dark theme foundation-first:** Zero dependencies enables parallel work on CSS while planning preview playback complexity
-- **Cut highlighting before search:** Validates DOM manipulation patterns before mark.js integration
-- **Preview playback last:** State machine complexity and dependency on stable cut highlighting
-- **Phase numbering continues from v2.0:** Phases 10-13 for v3.0 milestone (v2.0 ended at Phase 9)
-
-Phase 10 decisions:
-- **Dark theme as default:** Professional audio editor convention, reduces eye strain in long editing sessions
-- **Inline FOUC prevention script:** Blocking synchronous execution prevents white flash, only way to guarantee theme before first paint
-- **Professional audio editor palette:** Dark grays (#1a-2d range) with muted accents matches Audacity/Descript conventions, WCAG AA compliant
-
-Phase 11 decisions:
-- **Button baseline styling via element selector:** Ensures all buttons (current and future) receive dark theme styling automatically without class additions
-
-Phase 12 decisions:
-- **mark.js ES6 module:** Used mark.es6.min.js for production ESM support, no CommonJS compatibility issues
-- **300ms debounce timeout:** Prevents excessive DOM manipulation on large transcripts
-- **CSS specificity hierarchy:** .transcript-word.in-cut-region mark.search-highlight enables search and cut highlights to coexist
-
-v2.0 key decisions (full list in archived milestone docs):
-- FFmpeg.wasm browser processing maintains privacy
-- Multi-threaded core for 2x performance improvement
-- Vite migration for COOP/COEP headers
-- 50 MB warning, 100 MB hard limit for file size
-- iOS Safari single-thread fallback
+v3.0 milestone complete. All key decisions validated and working.
 
 ### Pending Todos
 
-None yet - v3.0 planning just started.
+None - v3.0 milestone complete. Next milestone needs to be defined with `/gsd:new-milestone`.
 
 ### Blockers/Concerns
 
-**v3.0 Phase readiness (from research):**
-- **Phase 10:** Dark theme FOUC prevention requires inline script in head before CSS links ✓ RESOLVED
-- **Phase 12:** mark.js and cut highlighting both manipulate DOM - requires CSS specificity hierarchy and explicit unmark() cleanup ✓ RESOLVED
-- **Phase 13:** Preview playback state machine must subscribe to CutController.onCutListChanged for synchronization
-- **Phase 13:** VBR MP3 seek imprecision requires 0.1-0.2s tolerance in skip logic
-
-Phase 10, 11, 12 blockers resolved. Phase 13 blockers have validated mitigation strategies.
+None - v3.0 shipped successfully with all requirements met.
 
 ## Session Continuity
 
-Last session: 2026-01-29
-Stopped at: Completed 12-01-PLAN.md - Real-time transcript search with mark.js
+Last session: 2026-01-30
+Stopped at: Completed v3.0 milestone (Phases 10-13) and archived
 Resume file: None
-Next: Phase 13 - Preview Playback with Skip (final v3.0 phase)
+Next: Define next milestone with `/gsd:new-milestone`
 
 ---
 

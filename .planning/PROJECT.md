@@ -10,34 +10,38 @@ Transcript-driven audio editing that makes it fast to find, mark, and remove sec
 
 ## Current State
 
-**Latest Release:** v2.0 In-Browser Audio Processing (shipped 2026-01-28)
+**Latest Release:** v3.0 UX & Preview Enhancements (shipped 2026-01-30)
 
 **What works now:**
 - Upload audio files (MP3, WAV, M4A) with memory-efficient streaming
 - Generate timestamped transcripts via API (OpenAI Whisper, Deepgram, etc.)
-- Navigate audio by clicking words in transcript with auto-scroll
-- Mark cut regions with visual feedback and editable timestamps
+- Navigate audio by clicking words in transcript with auto-scroll and search
+- Mark cut regions with visual feedback (amber highlight), editable timestamps
+- Preview playback that automatically skips cut regions to match final output
 - Process audio in browser with FFmpeg.wasm (no server required)
 - Download edited audio with cuts removed and timestamped filenames
-- Cancel processing operations and see real-time progress with FFmpeg logs
+- Professional dark audio editor theme with WCAG AA compliant contrast
+- Getting started instructions for first-time users
+- Real-time transcript search with mark.js highlighting
 
 **Tech Stack:**
-- ~4,100 LOC JavaScript + HTML
+- ~4,442 LOC JavaScript + HTML
 - Vite dev server with cross-origin isolation headers (COOP/COEP)
 - FFmpeg.wasm for browser-based audio processing
+- mark.js for transcript search highlighting
 - API-based transcription (OpenAI Whisper API)
 - Local development only (no deployment)
 
-## Current Milestone: v3.0 UX & Preview Enhancements
+## Current Milestone: Planning Next Milestone
 
-**Goal:** Improve editing workflow with visual feedback, preview playback, and modern UI polish
+**Status:** v3.0 complete, ready to define next goals
 
-**Target features:**
-- Highlight cut regions in transcript with shaded background styling
-- Preview playback that automatically skips cut regions
-- Transcript search with real-time text highlighting (mark.js)
-- Dark podcast/audio editor theme with modern aesthetic
-- Minimal getting started instructions for first-time users
+**Possible directions:**
+- Keyboard shortcuts for common operations (play/pause, mark cuts, search)
+- Format conversion options (MP3↔WAV, M4A→MP3)
+- Batch processing for multiple files
+- Waveform visualization
+- Enhanced accessibility (screen reader support, keyboard-only navigation)
 
 ## Requirements
 
@@ -61,14 +65,19 @@ From v2.0 (shipped 2026-01-28):
 - ✓ User can cancel long-running processing operations — v2.0
 - ✓ System shows processing time estimates and progress feedback — v2.0
 
+From v3.0 (shipped 2026-01-30):
+- ✓ Cut regions visually highlighted in transcript with amber background — v3.0
+- ✓ Preview playback skips cut regions automatically with VBR MP3 tolerance — v3.0
+- ✓ Transcript search with real-time highlighting using mark.js — v3.0
+- ✓ Dark theme with podcast/audio editor aesthetic and WCAG AA compliance — v3.0
+- ✓ Getting started instructions on landing page with auto-hide — v3.0
+
 ### Active
 
-v3.0 milestone (in planning):
-- [ ] Cut regions visually highlighted in transcript
-- [ ] Preview playback skips cut regions automatically
-- [ ] Transcript search with real-time highlighting
-- [ ] Dark theme with podcast/audio editor aesthetic
-- [ ] Getting started instructions on landing page
+Next milestone (to be defined):
+- [ ] Keyboard shortcuts for common operations
+- [ ] Format conversion options (MP3↔WAV, M4A→MP3)
+- [ ] Batch processing for multiple files
 
 Future enhancements (deferred):
 - [ ] Format conversion options (MP3→WAV, M4A→MP3)
@@ -103,10 +112,16 @@ The transcript is the primary navigation tool - the user skims text to find prob
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| JSON output format | Structured data easy to parse in scripts | — Pending |
-| API-based transcription | Accuracy over cost, acceptable for personal use | — Pending |
-| No session persistence | One-shot workflow, simpler implementation | — Pending |
-| Basic audio player | Core functionality sufficient, no visualization needed | — Pending |
+| JSON output format | Structured data easy to parse in scripts | ✓ Good - Used for external FFmpeg workflows in v1.0 |
+| API-based transcription | Accuracy over cost, acceptable for personal use | ✓ Good - Whisper API provides reliable timestamps |
+| No session persistence | One-shot workflow, simpler implementation | ✓ Good - Users complete edits in single session |
+| Basic audio player | Core functionality sufficient, no visualization needed | ✓ Good - Transcript navigation is primary interface |
+| FFmpeg.wasm browser processing | Privacy, no server needed, instant results | ✓ Good - v2.0 eliminates external dependencies |
+| Dark theme default | Professional audio editor convention, reduces eye strain | ✓ Good - v3.0, matches Audacity/Descript expectations |
+| Inline FOUC prevention script | Only way to guarantee theme before first paint | ✓ Good - v3.0, prevents white flash |
+| mark.js for search highlighting | Battle-tested library, handles edge cases | ✓ Good - v3.0, works with cut region highlighting |
+| Preview playback with VBR tolerance | Allows users to hear final result, 150ms tolerance for imprecise seeks | ✓ Good - v3.0, validates cuts before processing |
+| Button element selector styling | Ensures all buttons (current and future) inherit dark theme | ✓ Good - v3.0, consistent aesthetic without class additions |
 
 ---
-*Last updated: 2026-01-28 after v3.0 milestone initialization*
+*Last updated: 2026-01-30 after v3.0 milestone completion*
